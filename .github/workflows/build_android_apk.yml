@@ -52,49 +52,45 @@ jobs:
           path: build/app/outputs/flutter-apk/*.apk
           retention-days: 30
 
-      - name: Decode keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.KEY_ALIAS != '' }}
+      - name: Decode keystore if available
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ] && [ -n "${{ secrets.STORE_PASSWORD }}" ] && [ -n "${{ secrets.KEY_PASSWORD }}" ] && [ -n "${{ secrets.KEY_ALIAS }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
 
-      - name: Validate signing keystore
-        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.KEY_ALIAS != '' }}
-        run: |
-          if [ ! -s android/app/keystore.jks ]; then
-            echo "The decoded keystore file is empty or missing."
-            exit 1
-          fi
+            if ! keytool -list -v \
+              -keystore android/app/keystore.jks \
+              -storepass "${{ secrets.STORE_PASSWORD }}" \
+              > /tmp/keytool-list.txt 2>&1; then
+              cat /tmp/keytool-list.txt
+              echo "The signing keystore could not be read. Confirm that KEYSTORE_BASE64, STORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD are valid."
+              exit 1
+            fi
 
-          if ! keytool -list -v \
-            -keystore android/app/keystore.jks \
-            -storepass "${{ secrets.STORE_PASSWORD }}" \
-            > /tmp/keytool-list.txt 2>&1; then
             cat /tmp/keytool-list.txt
-            echo "The signing keystore could not be read. Confirm that KEYSTORE_BASE64, STORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD are valid."
-            exit 1
+
+            cat <<EOF > android/key.properties
+            storePassword=${{ secrets.STORE_PASSWORD }}
+            keyPassword=${{ secrets.KEY_PASSWORD }}
+            keyAlias=${{ secrets.KEY_ALIAS }}
+            storeFile=keystore.jks
+            storeType=${{ secrets.KEYSTORE_TYPE }}
+            EOF
+          else
+            echo "Release signing secrets are not configured. Skipping signed release build."
           fi
-
-          cat /tmp/keytool-list.txt
-
-      - name: Create key.properties
-        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.KEY_ALIAS != '' }}
-        run: |
-          cat <<EOF > android/key.properties
-          storePassword=${{ secrets.STORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=keystore.jks
-          storeType=${{ secrets.KEYSTORE_TYPE }}
-          EOF
 
       - name: Build signed release APK
-        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.KEY_ALIAS != '' }}
-        run: submodules/flutter/bin/flutter build apk --release --split-per-abi
+        run: |
+          if [ -f android/key.properties ] && [ -s android/app/keystore.jks ]; then
+            submodules/flutter/bin/flutter build apk --release --split-per-abi
+          else
+            echo "Release signing artifacts are unavailable, so the signed release APK step is skipped."
+          fi
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m"
 
       - name: Upload signed APK
-        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.KEY_ALIAS != '' }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
           name: signed-release-apk
@@ -102,11 +98,15 @@ jobs:
           retention-days: 30
 
       - name: Build signed release app bundle
-        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.KEY_ALIAS != '' }}
-        run: submodules/flutter/bin/flutter build appbundle --release
+        run: |
+          if [ -f android/key.properties ] && [ -s android/app/keystore.jks ]; then
+            submodules/flutter/bin/flutter build appbundle --release
+          else
+            echo "Release signing artifacts are unavailable, so the signed app bundle step is skipped."
+          fi
 
       - name: Upload signed AAB
-        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.KEY_ALIAS != '' }}
+        if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
           name: signed-release-aab
