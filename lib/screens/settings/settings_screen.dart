@@ -385,6 +385,10 @@ class _SettingsViewState extends State<SettingsView>
                 if (preference is DividerPreference) const Divider(),
               ],
               ListTile(
+                enabled:
+                    !preferenceState.isHackerNewsThemeEnabled &&
+                    (!Platform.isAndroid ||
+                        !preferenceState.isDynamicColorEnabled),
                 title: const Text('Accent Color'),
                 onTap: showColorPicker,
               ),
@@ -525,6 +529,12 @@ class _SettingsViewState extends State<SettingsView>
       ..showErrorSnackBar('Please disable Hacker News Theme first.');
   }
 
+  void showDynamicColorError() {
+    context
+      ..removeSnackBar()
+      ..showErrorSnackBar('Please disable Dynamic Colors first.');
+  }
+
   void showFontSettingDialog() {
     if (context.read<PreferenceCubit>().state.isHackerNewsThemeEnabled) {
       showHackerNewsThemeError();
@@ -621,8 +631,15 @@ class _SettingsViewState extends State<SettingsView>
   }
 
   void showColorPicker() {
-    if (context.read<PreferenceCubit>().state.isHackerNewsThemeEnabled) {
+    final PreferenceState preferenceState = context
+        .read<PreferenceCubit>()
+        .state;
+    if (preferenceState.isHackerNewsThemeEnabled) {
       showHackerNewsThemeError();
+      return;
+    }
+    if (Platform.isAndroid && preferenceState.isDynamicColorEnabled) {
+      showDynamicColorError();
       return;
     }
     showDialog<void>(

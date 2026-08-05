@@ -808,6 +808,11 @@ final class DynamicColorPreference extends BooleanPreference {
   }
 
   @override
+  Set<Preference<dynamic>> get dependencies => <Preference<dynamic>>{
+    const HackerNewsThemePreference(val: false),
+  };
+
+  @override
   String get key => 'dynamicColor';
 
   @override
@@ -815,6 +820,9 @@ final class DynamicColorPreference extends BooleanPreference {
 
   @override
   String get subtitle => 'Use Android Material You colors when available.';
+
+  @override
+  bool get isDisplayable => Platform.isAndroid;
 }
 
 final class HapticFeedbackPreference extends BooleanPreference {
