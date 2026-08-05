@@ -29,6 +29,7 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
+def keystoreStoreType = keystoreProperties['storeType'] ?: 'JKS'
 
 android {
     namespace "com.jiaqifeng.hacki"
@@ -64,6 +65,7 @@ android {
             keyPassword keystoreProperties['keyPassword']
             storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
             storePassword keystoreProperties['storePassword']
+            storeType keystoreStoreType
         }
     }
 

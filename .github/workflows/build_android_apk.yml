@@ -44,6 +44,24 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
 
+      - name: Validate signing keystore
+        run: |
+          if [ ! -s android/app/keystore.jks ]; then
+            echo "The decoded keystore file is empty or missing."
+            exit 1
+          fi
+
+          if ! keytool -list -v \
+            -keystore android/app/keystore.jks \
+            -storepass "${{ secrets.STORE_PASSWORD }}" \
+            > /tmp/keytool-list.txt 2>&1; then
+            cat /tmp/keytool-list.txt
+            echo "The signing keystore could not be read. Confirm that KEYSTORE_BASE64, STORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD are valid."
+            exit 1
+          fi
+
+          cat /tmp/keytool-list.txt
+
       - name: Create key.properties
         run: |
           cat <<EOF > android/key.properties
@@ -51,6 +69,7 @@ jobs:
           keyPassword=${{ secrets.KEY_PASSWORD }}
           keyAlias=${{ secrets.KEY_ALIAS }}
           storeFile=keystore.jks
+          storeType=${{ secrets.KEYSTORE_TYPE }}
           EOF
 
       - name: Build signed release APK
