@@ -85,6 +85,7 @@ abstract final class Preference<T> extends Equatable with SettingsDisplayable {
         const WebViewBottomSheetPreference(),
         const DividerPlaceholder(label: 'Look And Feel'),
         const EyeCandyPreference(),
+        const DynamicColorPreference(),
         const HackerNewsThemePreference(),
         const HapticFeedbackPreference(),
         const TrueDarkModePreference(),
@@ -793,6 +794,27 @@ final class TrueDarkModePreference extends BooleanPreference {
 
   @override
   String get subtitle => 'real dark.';
+}
+
+final class DynamicColorPreference extends BooleanPreference {
+  const DynamicColorPreference({bool? val})
+    : super(val: val ?? _dynamicColorPreferenceDefaultValue);
+
+  static const bool _dynamicColorPreferenceDefaultValue = false;
+
+  @override
+  DynamicColorPreference copyWith({required bool? val}) {
+    return DynamicColorPreference(val: val);
+  }
+
+  @override
+  String get key => 'dynamicColor';
+
+  @override
+  String get title => 'Dynamic Colors';
+
+  @override
+  String get subtitle => 'Use Android Material You colors when available.';
 }
 
 final class HapticFeedbackPreference extends BooleanPreference {

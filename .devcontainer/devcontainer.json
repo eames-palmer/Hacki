@@ -1,0 +1,16 @@
+{
+  "name": "Hacki Flutter",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "vscode",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Dart-Code.flutter",
+        "Dart-Code.dart-code"
+      ]
+    }
+  },
+  "postCreateCommand": "bash -lc 'sudo chown -R vscode:vscode /opt/flutter /opt/android-sdk && git config --global --add safe.directory /opt/flutter && flutter config --android-sdk /opt/android-sdk && flutter --version'"
+}
