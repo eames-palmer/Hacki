@@ -387,8 +387,7 @@ class _SettingsViewState extends State<SettingsView>
               ListTile(
                 enabled:
                     !preferenceState.isHackerNewsThemeEnabled &&
-                    (!Platform.isAndroid ||
-                        !preferenceState.isDynamicColorEnabled),
+                    !preferenceState.isDynamicColorEnabled,
                 title: const Text('Accent Color'),
                 onTap: showColorPicker,
               ),
@@ -638,7 +637,7 @@ class _SettingsViewState extends State<SettingsView>
       showHackerNewsThemeError();
       return;
     }
-    if (Platform.isAndroid && preferenceState.isDynamicColorEnabled) {
+    if (preferenceState.isDynamicColorEnabled) {
       showDynamicColorError();
       return;
     }
