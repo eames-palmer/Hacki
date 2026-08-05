@@ -819,7 +819,7 @@ final class DynamicColorPreference extends BooleanPreference {
   String get title => 'Dynamic Colors';
 
   @override
-  String get subtitle => 'Use Android Material You colors when available.';
+  String get subtitle => 'wallpaper colors.';
 
   @override
   bool get isDisplayable => Platform.isAndroid;
