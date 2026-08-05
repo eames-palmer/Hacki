@@ -40,11 +40,25 @@ jobs:
       - run: submodules/flutter/bin/flutter analyze lib test integration_test
       - run: submodules/flutter/bin/flutter test
 
+      - name: Build debug APK
+        run: submodules/flutter/bin/flutter build apk --debug --split-per-abi
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m"
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: debug-apk
+          path: build/app/outputs/flutter-apk/*.apk
+          retention-days: 30
+
       - name: Decode keystore
+        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.KEY_ALIAS != '' }}
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
 
       - name: Validate signing keystore
+        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.KEY_ALIAS != '' }}
         run: |
           if [ ! -s android/app/keystore.jks ]; then
             echo "The decoded keystore file is empty or missing."
@@ -63,6 +77,7 @@ jobs:
           cat /tmp/keytool-list.txt
 
       - name: Create key.properties
+        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.KEY_ALIAS != '' }}
         run: |
           cat <<EOF > android/key.properties
           storePassword=${{ secrets.STORE_PASSWORD }}
@@ -73,11 +88,13 @@ jobs:
           EOF
 
       - name: Build signed release APK
+        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.KEY_ALIAS != '' }}
         run: submodules/flutter/bin/flutter build apk --release --split-per-abi
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m"
 
       - name: Upload signed APK
+        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.KEY_ALIAS != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: signed-release-apk
@@ -85,9 +102,11 @@ jobs:
           retention-days: 30
 
       - name: Build signed release app bundle
+        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.KEY_ALIAS != '' }}
         run: submodules/flutter/bin/flutter build appbundle --release
 
       - name: Upload signed AAB
+        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.STORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' && secrets.KEY_ALIAS != '' }}
         uses: actions/upload-artifact@v7
         with:
           name: signed-release-aab
