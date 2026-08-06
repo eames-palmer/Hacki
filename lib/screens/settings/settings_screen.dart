@@ -387,9 +387,6 @@ class _SettingsViewState extends State<SettingsView>
                 if (preference is DividerPreference) const Divider(),
               ],
               ListTile(
-                enabled:
-                    !preferenceState.isHackerNewsThemeEnabled &&
-                    !preferenceState.isDynamicColorEnabled,
                 title: const Text('Accent Color'),
                 onTap: showColorPicker,
               ),
