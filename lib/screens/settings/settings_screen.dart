@@ -546,12 +546,6 @@ class _SettingsViewState extends State<SettingsView>
     showDependencyError(const HackerNewsThemePreference(val: true));
   }
 
-  void showDynamicColorError() {
-    context
-      ..removeSnackBar()
-      ..showErrorSnackBar('Please disable Dynamic Colors first.');
-  }
-
   void showFontSettingDialog() {
     if (context.read<PreferenceCubit>().state.isHackerNewsThemeEnabled) {
       showHackerNewsThemeError();
