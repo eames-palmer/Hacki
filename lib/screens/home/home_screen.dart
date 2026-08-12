@@ -64,7 +64,10 @@ class _HomeScreenState extends State<HomeScreen>
     appLinks.uriLinkStream.listen((Uri uri) {
       logInfo('deeplink uri received: ${uri.path}');
       if (mounted) {
-        context.push(uri.path);
+        final String? itemId = uri.queryParameters['id'];
+        if (itemId != null) {
+          context.go('/item/$itemId');
+        }
       }
     });
 
