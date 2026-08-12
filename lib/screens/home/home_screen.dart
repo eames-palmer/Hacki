@@ -42,6 +42,7 @@ class _HomeScreenState extends State<HomeScreen>
   late final StreamSubscription<String?> siriSuggestionStreamSubscription;
   late final StreamSubscription<StoriesDownloadStatus>
   downloadStreamSubscription;
+  late final StreamSubscription<Uri> deepLinkStreamSubscription;
   final AppLinks appLinks = AppLinks();
 
   static final int tabLength = StoryType.values.length + 1;
@@ -61,7 +62,7 @@ class _HomeScreenState extends State<HomeScreen>
           }
         });
 
-    appLinks.uriLinkStream.listen((Uri uri) {
+    void handleDeepLink(Uri uri) {
       logInfo('deeplink uri received: ${uri.path}');
       if (mounted) {
         final String? itemId = uri.queryParameters['id'];
@@ -69,6 +70,11 @@ class _HomeScreenState extends State<HomeScreen>
           context.go('/item/$itemId');
         }
       }
+    }
+
+    deepLinkStreamSubscription = appLinks.uriLinkStream.listen(handleDeepLink);
+    appLinks.getInitialLink().then((Uri? uri) {
+      if (uri != null) handleDeepLink(uri);
     });
 
     ReceiveSharingIntent.instance.getInitialMedia().then(
@@ -111,6 +117,7 @@ class _HomeScreenState extends State<HomeScreen>
   void dispose() {
     tabController.dispose();
     intentDataStreamSubscription.cancel();
+    deepLinkStreamSubscription.cancel();
     notificationStreamSubscription.cancel();
     siriSuggestionStreamSubscription.cancel();
     downloadStreamSubscription.cancel();
