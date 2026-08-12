@@ -67,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen>
       if (mounted) {
         final String? itemId = uri.queryParameters['id'];
         if (itemId != null) {
-          context.go('/item/$itemId');
+          context.replace('/item/$itemId');
         }
       }
     }
