@@ -19,7 +19,7 @@ final GoRouter router = GoRouter(
   initialLocation: HomeScreen.routeName,
   routes: <RouteBase>[
     GoRoute(
-      path: ItemScreen.routeName,
+      path: '/${ItemScreen.routeName}',
       builder: (_, GoRouterState state) {
         final ItemScreenArgs? args = state.extra as ItemScreenArgs?;
         if (args == null) {
@@ -35,7 +35,7 @@ final GoRouter router = GoRouter(
       ],
     ),
     GoRoute(
-      path: '${ItemScreen.routeName}/:itemId',
+      path: '/${ItemScreen.routeName}/:itemId',
       builder: (BuildContext context, GoRouterState state) {
         final String? itemIdStr = state.pathParameters['itemId'];
         final int? itemId = itemIdStr?.itemId;
