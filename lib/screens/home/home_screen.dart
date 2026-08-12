@@ -44,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen>
   downloadStreamSubscription;
   late final StreamSubscription<Uri> deepLinkStreamSubscription;
   final AppLinks appLinks = AppLinks();
+  Uri? lastDeepLink;
 
   static final int tabLength = StoryType.values.length + 1;
 
@@ -63,6 +64,8 @@ class _HomeScreenState extends State<HomeScreen>
         });
 
     void handleDeepLink(Uri uri) {
+      if (uri == lastDeepLink) return;
+      lastDeepLink = uri;
       logInfo('deeplink uri received: ${uri.path}');
       if (mounted) {
         final String? itemId = uri.queryParameters['id'];
@@ -73,9 +76,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     deepLinkStreamSubscription = appLinks.uriLinkStream.listen(handleDeepLink);
-    appLinks.getInitialLink().then((Uri? uri) {
-      if (uri != null) handleDeepLink(uri);
-    });
 
     ReceiveSharingIntent.instance.getInitialMedia().then(
       onShareExtensionTapped,
