@@ -2,7 +2,28 @@ name: Build Android APK
 
 on:
   # Allow manual builds of this workflow.
-  workflow_dispatch: { }
+  workflow_dispatch:
+    inputs:
+      run_checks:
+        description: Run formatting, analysis, and tests
+        required: false
+        default: false
+        type: boolean
+      build_release:
+        description: Build signed release APK and app bundle when secrets are available
+        required: false
+        default: false
+        type: boolean
+      build_profile:
+        description: Build an AOT profile APK instead of a debug APK
+        required: false
+        default: false
+        type: boolean
+      use_dev_signing:
+        description: Sign the debug or profile APK with the stable development keystore
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - master
@@ -22,53 +43,147 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 1
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.2'
+          channel: stable
+          cache: true
 
       - name: Set up Java
         uses: actions/setup-java@v6
         with:
           distribution: 'temurin'
           java-version: '21'
+          cache: gradle
 
-      - name: Check out from git
-        uses: actions/checkout@v7
+      - name: Cache Flutter and pub packages
+        uses: actions/cache@v4
         with:
-          submodules: recursive
-          fetch-depth: 0
-      - run: submodules/flutter/bin/flutter doctor
-      - run: submodules/flutter/bin/flutter pub get
-      - run: submodules/flutter/bin/dart format --set-exit-if-changed lib test integration_test
-      - run: submodules/flutter/bin/flutter analyze lib test integration_test
-      - run: submodules/flutter/bin/flutter test
+          path: |
+            ~/.cache/flutter
+            ~/.pub-cache
+          key: flutter-pub-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
 
-      - name: Decode keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+      - run: flutter pub get
 
-      - name: Create key.properties
+      - name: Decode development keystore
+        if: ${{ inputs.use_dev_signing == true }}
+        env:
+          DEV_KEYSTORE_BASE64: ${{ secrets.DEV_KEYSTORE_BASE64 }}
+          DEV_STORE_PASSWORD: ${{ secrets.DEV_STORE_PASSWORD }}
+          DEV_KEY_PASSWORD: ${{ secrets.DEV_KEY_PASSWORD }}
+          DEV_KEY_ALIAS: ${{ secrets.DEV_KEY_ALIAS }}
         run: |
-          cat <<EOF > android/key.properties
-          storePassword=${{ secrets.STORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=keystore.jks
+          set -euo pipefail
+          : "${DEV_KEYSTORE_BASE64:?DEV_KEYSTORE_BASE64 is required}"
+          : "${DEV_STORE_PASSWORD:?DEV_STORE_PASSWORD is required}"
+          : "${DEV_KEY_PASSWORD:?DEV_KEY_PASSWORD is required}"
+          : "${DEV_KEY_ALIAS:?DEV_KEY_ALIAS is required}"
+          printf '%s' "$DEV_KEYSTORE_BASE64" | base64 --decode > android/app/dev-keystore.jks
+          cat > android/dev-key.properties <<EOF
+          storePassword=$DEV_STORE_PASSWORD
+          keyPassword=$DEV_KEY_PASSWORD
+          keyAlias=$DEV_KEY_ALIAS
+          storeFile=dev-keystore.jks
           EOF
 
+      - name: Run checks
+        if: ${{ inputs.run_checks == true }}
+        run: |
+          dart format --set-exit-if-changed lib test integration_test
+          flutter analyze lib test integration_test
+          flutter test
+
+      - name: Build debug APK
+        if: ${{ inputs.build_profile != true }}
+        run: flutter build apk --debug --split-per-abi --target-platform android-arm64
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m"
+
+      - name: Upload debug APK
+        if: ${{ inputs.build_profile != true }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: debug-apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
+          retention-days: 30
+
+      - name: Build profile APK
+        if: ${{ inputs.build_profile == true }}
+        run: flutter build apk --profile --split-per-abi --target-platform android-arm64
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m"
+
+      - name: Upload profile APK
+        if: ${{ inputs.build_profile == true }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: profile-apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk
+          retention-days: 30
+
+      - name: Decode keystore if available
+        if: ${{ inputs.build_release == true }}
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ] && [ -n "${{ secrets.STORE_PASSWORD }}" ] && [ -n "${{ secrets.KEY_PASSWORD }}" ] && [ -n "${{ secrets.KEY_ALIAS }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+
+            if ! keytool -list -v \
+              -keystore android/app/keystore.jks \
+              -storepass "${{ secrets.STORE_PASSWORD }}" \
+              > /tmp/keytool-list.txt 2>&1; then
+              cat /tmp/keytool-list.txt
+              echo "The signing keystore could not be read. Confirm that KEYSTORE_BASE64, STORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD are valid."
+              exit 1
+            fi
+
+            cat /tmp/keytool-list.txt
+
+            cat <<EOF > android/key.properties
+            storePassword=${{ secrets.STORE_PASSWORD }}
+            keyPassword=${{ secrets.KEY_PASSWORD }}
+            keyAlias=${{ secrets.KEY_ALIAS }}
+            storeFile=keystore.jks
+            storeType=${{ secrets.KEYSTORE_TYPE }}
+            EOF
+          else
+            echo "Release signing secrets are not configured. Skipping signed release build."
+          fi
+
       - name: Build signed release APK
-        run: submodules/flutter/bin/flutter build apk --release --split-per-abi
+        if: ${{ inputs.build_release == true }}
+        run: |
+          if [ -f android/key.properties ] && [ -s android/app/keystore.jks ]; then
+            flutter build apk --release --split-per-abi --target-platform android-arm64
+          else
+            echo "Release signing artifacts are unavailable, so the signed release APK step is skipped."
+          fi
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m"
 
       - name: Upload signed APK
+        if: ${{ inputs.build_release == true && always() }}
         uses: actions/upload-artifact@v7
         with:
           name: signed-release-apk
-          path: build/app/outputs/flutter-apk/*.apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           retention-days: 30
 
       - name: Build signed release app bundle
-        run: submodules/flutter/bin/flutter build appbundle --release
+        if: ${{ inputs.build_release == true }}
+        run: |
+          if [ -f android/key.properties ] && [ -s android/app/keystore.jks ]; then
+            flutter build appbundle --release
+          else
+            echo "Release signing artifacts are unavailable, so the signed app bundle step is skipped."
+          fi
 
       - name: Upload signed AAB
+        if: ${{ inputs.build_release == true && always() }}
         uses: actions/upload-artifact@v7
         with:
           name: signed-release-aab
