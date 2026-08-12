@@ -2,7 +2,18 @@ name: Build Android APK
 
 on:
   # Allow manual builds of this workflow.
-  workflow_dispatch: { }
+  workflow_dispatch:
+    inputs:
+      run_checks:
+        description: Run formatting, analysis, and tests
+        required: false
+        default: false
+        type: boolean
+      build_release:
+        description: Build signed release APK and app bundle when secrets are available
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - master
@@ -22,26 +33,36 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          fetch-depth: 1
 
       - name: Set up Java
         uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '18'
+          cache: gradle
 
-      - name: Check out from git
-        uses: actions/checkout@v7
+      - name: Cache Flutter and pub packages
+        uses: actions/cache@v4
         with:
-          submodules: recursive
-          fetch-depth: 0
-      - run: submodules/flutter/bin/flutter doctor
+          path: |
+            ~/.cache/flutter
+            ~/.pub-cache
+          key: flutter-pub-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+
       - run: submodules/flutter/bin/flutter pub get
-      - run: submodules/flutter/bin/dart format --set-exit-if-changed lib test integration_test
-      - run: submodules/flutter/bin/flutter analyze lib test integration_test
-      - run: submodules/flutter/bin/flutter test
+
+      - name: Run checks
+        if: ${{ inputs.run_checks == true }}
+        run: |
+          submodules/flutter/bin/dart format --set-exit-if-changed lib test integration_test
+          submodules/flutter/bin/flutter analyze lib test integration_test
+          submodules/flutter/bin/flutter test
 
       - name: Build debug APK
-        run: submodules/flutter/bin/flutter build apk --debug --split-per-abi
+        run: submodules/flutter/bin/flutter build apk --debug --split-per-abi --target-platform android-arm64
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m"
 
@@ -49,10 +70,11 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: debug-apk
-          path: build/app/outputs/flutter-apk/*.apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
           retention-days: 30
 
       - name: Decode keystore if available
+        if: ${{ inputs.build_release == true }}
         run: |
           if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ] && [ -n "${{ secrets.STORE_PASSWORD }}" ] && [ -n "${{ secrets.KEY_PASSWORD }}" ] && [ -n "${{ secrets.KEY_ALIAS }}" ]; then
             echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
@@ -80,9 +102,10 @@ jobs:
           fi
 
       - name: Build signed release APK
+        if: ${{ inputs.build_release == true }}
         run: |
           if [ -f android/key.properties ] && [ -s android/app/keystore.jks ]; then
-            submodules/flutter/bin/flutter build apk --release --split-per-abi
+            submodules/flutter/bin/flutter build apk --release --split-per-abi --target-platform android-arm64
           else
             echo "Release signing artifacts are unavailable, so the signed release APK step is skipped."
           fi
@@ -90,14 +113,15 @@ jobs:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m"
 
       - name: Upload signed APK
-        if: ${{ always() }}
+        if: ${{ inputs.build_release == true && always() }}
         uses: actions/upload-artifact@v7
         with:
           name: signed-release-apk
-          path: build/app/outputs/flutter-apk/*.apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           retention-days: 30
 
       - name: Build signed release app bundle
+        if: ${{ inputs.build_release == true }}
         run: |
           if [ -f android/key.properties ] && [ -s android/app/keystore.jks ]; then
             submodules/flutter/bin/flutter build appbundle --release
@@ -106,7 +130,7 @@ jobs:
           fi
 
       - name: Upload signed AAB
-        if: ${{ always() }}
+        if: ${{ inputs.build_release == true && always() }}
         uses: actions/upload-artifact@v7
         with:
           name: signed-release-aab
