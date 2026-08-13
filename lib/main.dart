@@ -156,6 +156,7 @@ class _HackiAppState extends State<HackiApp> {
     _deepLinkSubscription = widget.appLinks.uriLinkStream.listen(
       _handleDeepLink,
     );
+    router.routeInformationProvider.addListener(_handleRouteChanged);
   }
 
   void _handleDeepLink(Uri uri) {
@@ -164,18 +165,25 @@ class _HackiAppState extends State<HackiApp> {
     final String? itemId = uri.queryParameters['id'];
     if (itemId == null || int.tryParse(itemId) == null) return;
 
-    final String location = '/item/$itemId';
-    final bool isCurrentLocation =
-        router.routeInformationProvider.value.uri.path == location;
-    if (uri == _lastDeepLink && isCurrentLocation) return;
+    if (uri == _lastDeepLink) return;
 
     _lastDeepLink = uri;
-    router.go(location);
+    router.go('/item/$itemId');
+  }
+
+  void _handleRouteChanged() {
+    final Uri? deepLink = _lastDeepLink;
+    final String? itemId = deepLink?.queryParameters['id'];
+    if (itemId == null ||
+        router.routeInformationProvider.value.uri.path != '/item/$itemId') {
+      _lastDeepLink = null;
+    }
   }
 
   @override
   void dispose() {
     _deepLinkSubscription.cancel();
+    router.routeInformationProvider.removeListener(_handleRouteChanged);
     super.dispose();
   }
 
