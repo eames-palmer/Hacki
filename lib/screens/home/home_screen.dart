@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:app_links/app_links.dart';
 import 'package:feature_discovery/feature_discovery.dart';
 import 'package:flutter/material.dart' hide Badge;
 import 'package:flutter/scheduler.dart';
@@ -10,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hacki/blocs/blocs.dart';
 import 'package:hacki/config/locator.dart';
 import 'package:hacki/config/paths.dart';
-import 'package:hacki/config/router.dart';
 import 'package:hacki/cubits/cubits.dart';
 import 'package:hacki/extensions/extensions.dart';
 import 'package:hacki/main.dart';
@@ -43,9 +41,6 @@ class _HomeScreenState extends State<HomeScreen>
   late final StreamSubscription<String?> siriSuggestionStreamSubscription;
   late final StreamSubscription<StoriesDownloadStatus>
   downloadStreamSubscription;
-  late final StreamSubscription<Uri> deepLinkStreamSubscription;
-  final AppLinks appLinks = AppLinks();
-  Uri? lastDeepLink;
 
   static final int tabLength = StoryType.values.length + 1;
 
@@ -63,21 +58,6 @@ class _HomeScreenState extends State<HomeScreen>
             DialogProxy.showDownloadCompletedDialog();
           }
         });
-
-    void handleDeepLink(Uri uri) {
-      if (uri == lastDeepLink) return;
-      lastDeepLink = uri;
-      logInfo('deeplink uri received: ${uri.path}');
-      if (mounted) {
-        final String? itemId = uri.queryParameters['id'];
-        if (itemId != null) {
-          logInfo('navigating to /item/$itemId');
-          router.go('/item/$itemId');
-        }
-      }
-    }
-
-    deepLinkStreamSubscription = appLinks.uriLinkStream.listen(handleDeepLink);
 
     ReceiveSharingIntent.instance.getInitialMedia().then(
       onShareExtensionTapped,
@@ -119,7 +99,6 @@ class _HomeScreenState extends State<HomeScreen>
   void dispose() {
     tabController.dispose();
     intentDataStreamSubscription.cancel();
-    deepLinkStreamSubscription.cancel();
     notificationStreamSubscription.cancel();
     siriSuggestionStreamSubscription.cancel();
     downloadStreamSubscription.cancel();
