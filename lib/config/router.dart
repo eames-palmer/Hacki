@@ -19,6 +19,33 @@ final GoRouter router = GoRouter(
   initialLocation: HomeScreen.routeName,
   routes: <RouteBase>[
     GoRoute(
+      path: '/${ItemScreen.routeName}/:itemId',
+      builder: (BuildContext context, GoRouterState state) {
+        final String? itemIdStr = state.pathParameters['itemId'];
+        final int? itemId = itemIdStr?.itemId;
+        if (itemId == null) {
+          throw GoError("item id can't be null");
+        }
+        return FutureBuilder<Item?>(
+          future: locator.get<HackerNewsRepository>().fetchItem(id: itemId),
+          builder: (BuildContext context, AsyncSnapshot<Item?> snapshot) {
+            if (snapshot.hasData) {
+              final ItemScreenArgs args = ItemScreenArgs(
+                item: snapshot.data!,
+              );
+              return ItemScreen.phone(args);
+            } else {
+              return const Scaffold(
+                body: Center(
+                  child: CircularProgressIndicator(strokeWidth: Dimens.pt2),
+                ),
+              );
+            }
+          },
+        );
+      },
+    ),
+    GoRoute(
       path: HomeScreen.routeName,
       builder: (_, __) => const HomeScreen(),
       routes: <RouteBase>[
@@ -37,33 +64,6 @@ final GoRouter router = GoRouter(
               builder: (_, __) => const SettingsScreen(),
             ),
           ],
-        ),
-        GoRoute(
-          path: '${ItemScreen.routeName}/:itemId',
-          builder: (BuildContext context, GoRouterState state) {
-            final String? itemIdStr = state.pathParameters['itemId'];
-            final int? itemId = itemIdStr?.itemId;
-            if (itemId == null) {
-              throw GoError("item id can't be null");
-            }
-            return FutureBuilder<Item?>(
-              future: locator.get<HackerNewsRepository>().fetchItem(id: itemId),
-              builder: (BuildContext context, AsyncSnapshot<Item?> snapshot) {
-                if (snapshot.hasData) {
-                  final ItemScreenArgs args = ItemScreenArgs(
-                    item: snapshot.data!,
-                  );
-                  return ItemScreen.phone(args);
-                } else {
-                  return const Scaffold(
-                    body: Center(
-                      child: CircularProgressIndicator(strokeWidth: Dimens.pt2),
-                    ),
-                  );
-                }
-              },
-            );
-          },
         ),
         GoRoute(
           path: ShareScreen.routeName,

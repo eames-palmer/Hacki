@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:adaptive_theme/adaptive_theme.dart';
+import 'package:app_links/app_links.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:equatable/equatable.dart';
@@ -44,6 +45,23 @@ late final bool isTesting;
 void notificationReceiver(NotificationResponse details) =>
     selectNotificationSubject.add(details.payload);
 
+void _listenForDeepLinks() {
+  final AppLinks appLinks = AppLinks();
+  Uri? lastDeepLink;
+
+  appLinks.uriLinkStream.listen((Uri uri) {
+    if (uri == lastDeepLink) return;
+    lastDeepLink = uri;
+
+    locator.get<Logger>().i('deeplink received: ${uri.path}');
+
+    final String? itemId = uri.queryParameters['id'];
+    if (itemId != null) {
+      router.go('/item/$itemId');
+    }
+  });
+}
+
 Future<void> main({bool testing = false}) async {
   if (kDebugMode) {
     HttpOverrides.global = DebugHttpOverrides();
@@ -65,6 +83,8 @@ Future<void> main({bool testing = false}) async {
   HydratedBloc.storage = storage;
 
   await setUpLocator();
+
+  _listenForDeepLinks();
 
   EquatableConfig.stringify = true;
 
