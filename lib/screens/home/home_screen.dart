@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 import 'package:hacki/blocs/blocs.dart';
 import 'package:hacki/config/locator.dart';
 import 'package:hacki/config/paths.dart';
+import 'package:hacki/config/router.dart';
 import 'package:hacki/cubits/cubits.dart';
 import 'package:hacki/extensions/extensions.dart';
 import 'package:hacki/main.dart';
@@ -70,7 +71,8 @@ class _HomeScreenState extends State<HomeScreen>
       if (mounted) {
         final String? itemId = uri.queryParameters['id'];
         if (itemId != null) {
-          context.replace('/item/$itemId');
+          logInfo('navigating to /item/$itemId');
+          router.go('/item/$itemId');
         }
       }
     }
