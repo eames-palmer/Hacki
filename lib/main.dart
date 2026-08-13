@@ -156,11 +156,6 @@ class _HackiAppState extends State<HackiApp> {
     _deepLinkSubscription = widget.appLinks.uriLinkStream.listen(
       _handleDeepLink,
     );
-    unawaited(
-      widget.appLinks.getInitialLink().then((Uri? uri) {
-        if (uri != null) _handleDeepLink(uri);
-      }),
-    );
   }
 
   void _handleDeepLink(Uri uri) {

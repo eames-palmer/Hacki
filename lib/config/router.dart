@@ -20,6 +20,41 @@ final GoRouter router = GoRouter(
   initialLocation: HomeScreen.routeName,
   routes: <RouteBase>[
     GoRoute(
+      path: '/${ItemScreen.routeName}/:itemId',
+      builder: (BuildContext context, GoRouterState state) {
+        final String? itemIdStr = state.pathParameters['itemId'];
+        final int? itemId = itemIdStr?.itemId;
+        if (itemId == null) {
+          throw GoError("item id can't be null");
+        }
+        return FutureBuilder<Item?>(
+          future: locator.get<HackerNewsRepository>().fetchItem(id: itemId),
+          builder: (BuildContext context, AsyncSnapshot<Item?> snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: Dimens.pt2,
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.hasError || !snapshot.hasData) {
+              return Scaffold(
+                body: Center(child: Text(Constants.errorMessage)),
+              );
+            }
+
+            final ItemScreenArgs args = ItemScreenArgs(
+              item: snapshot.data!,
+            );
+            return ItemScreen.phone(args);
+          },
+        );
+      },
+    ),
+    GoRoute(
       path: HomeScreen.routeName,
       builder: (_, __) => const HomeScreen(),
       routes: <RouteBase>[
@@ -38,43 +73,6 @@ final GoRouter router = GoRouter(
               builder: (_, __) => const SettingsScreen(),
             ),
           ],
-        ),
-        GoRoute(
-          path: '${ItemScreen.routeName}/:itemId',
-          builder: (BuildContext context, GoRouterState state) {
-            final String? itemIdStr = state.pathParameters['itemId'];
-            final int? itemId = itemIdStr?.itemId;
-            if (itemId == null) {
-              throw GoError("item id can't be null");
-            }
-            return FutureBuilder<Item?>(
-              future: locator.get<HackerNewsRepository>().fetchItem(
-                id: itemId,
-              ),
-              builder: (BuildContext context, AsyncSnapshot<Item?> snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Scaffold(
-                    body: Center(
-                      child: CircularProgressIndicator(
-                        strokeWidth: Dimens.pt2,
-                      ),
-                    ),
-                  );
-                }
-
-                if (snapshot.hasError || !snapshot.hasData) {
-                  return Scaffold(
-                    body: Center(child: Text(Constants.errorMessage)),
-                  );
-                }
-
-                final ItemScreenArgs args = ItemScreenArgs(
-                  item: snapshot.data!,
-                );
-                return ItemScreen.phone(args);
-              },
-            );
-          },
         ),
         GoRoute(
           path: ShareScreen.routeName,
