@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:adaptive_theme/adaptive_theme.dart';
+import 'package:app_links/app_links.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:equatable/equatable.dart';
@@ -50,6 +51,8 @@ Future<void> main({bool testing = false}) async {
   }
 
   WidgetsFlutterBinding.ensureInitialized();
+
+  final AppLinks appLinks = AppLinks();
 
   await initializeDateFormatting(Platform.localeName);
 
@@ -128,13 +131,58 @@ Future<void> main({bool testing = false}) async {
 
   VisibilityDetectorController.instance.updateInterval = AppDurations.ms200;
 
-  runApp(HackiApp(savedThemeMode: savedThemeMode));
+  runApp(
+    HackiApp(savedThemeMode: savedThemeMode, appLinks: appLinks),
+  );
 }
 
-class HackiApp extends StatelessWidget {
-  const HackiApp({super.key, this.savedThemeMode});
+class HackiApp extends StatefulWidget {
+  const HackiApp({super.key, this.savedThemeMode, required this.appLinks});
 
   final AdaptiveThemeMode? savedThemeMode;
+  final AppLinks appLinks;
+
+  @override
+  State<HackiApp> createState() => _HackiAppState();
+}
+
+class _HackiAppState extends State<HackiApp> {
+  late final StreamSubscription<Uri> _deepLinkSubscription;
+  Uri? _lastDeepLink;
+
+  @override
+  void initState() {
+    super.initState();
+    _deepLinkSubscription = widget.appLinks.uriLinkStream.listen(
+      _handleDeepLink,
+    );
+    unawaited(
+      widget.appLinks.getInitialLink().then((Uri? uri) {
+        if (uri != null) _handleDeepLink(uri);
+      }),
+    );
+  }
+
+  void _handleDeepLink(Uri uri) {
+    locator.get<Logger>().i('deeplink received: ${uri.path}');
+
+    final String? itemId = uri.queryParameters['id'];
+    if (itemId == null || int.tryParse(itemId) == null) return;
+
+    final String location = '/item/$itemId';
+    final bool isCurrentLocation =
+        router.routeInformationProvider.value.uri.path == location;
+    if (uri == _lastDeepLink && isCurrentLocation) return;
+
+    _lastDeepLink = uri;
+    router.go(location);
+  }
+
+  @override
+  void dispose() {
+    _deepLinkSubscription.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -255,7 +303,7 @@ class HackiApp extends StatelessWidget {
               ),
               fontFamily: state.font.name,
             ),
-            initial: savedThemeMode ?? AdaptiveThemeMode.system,
+            initial: widget.savedThemeMode ?? AdaptiveThemeMode.system,
             builder: (ThemeData theme, ThemeData darkTheme) {
               return FutureBuilder<AdaptiveThemeMode?>(
                 future: AdaptiveTheme.getThemeMode(),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hacki/config/constants.dart';
 import 'package:hacki/config/locator.dart';
 import 'package:hacki/cubits/cubits.dart';
 import 'package:hacki/extensions/extensions.dart';
@@ -47,20 +48,30 @@ final GoRouter router = GoRouter(
               throw GoError("item id can't be null");
             }
             return FutureBuilder<Item?>(
-              future: locator.get<HackerNewsRepository>().fetchItem(id: itemId),
+              future: locator.get<HackerNewsRepository>().fetchItem(
+                id: itemId,
+              ),
               builder: (BuildContext context, AsyncSnapshot<Item?> snapshot) {
-                if (snapshot.hasData) {
-                  final ItemScreenArgs args = ItemScreenArgs(
-                    item: snapshot.data!,
-                  );
-                  return ItemScreen.phone(args);
-                } else {
+                if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Scaffold(
                     body: Center(
-                      child: CircularProgressIndicator(strokeWidth: Dimens.pt2),
+                      child: CircularProgressIndicator(
+                        strokeWidth: Dimens.pt2,
+                      ),
                     ),
                   );
                 }
+
+                if (snapshot.hasError || !snapshot.hasData) {
+                  return Scaffold(
+                    body: Center(child: Text(Constants.errorMessage)),
+                  );
+                }
+
+                final ItemScreenArgs args = ItemScreenArgs(
+                  item: snapshot.data!,
+                );
+                return ItemScreen.phone(args);
               },
             );
           },
