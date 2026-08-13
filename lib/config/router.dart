@@ -19,22 +19,6 @@ final GoRouter router = GoRouter(
   initialLocation: HomeScreen.routeName,
   routes: <RouteBase>[
     GoRoute(
-      path: '/${ItemScreen.routeName}',
-      builder: (_, GoRouterState state) {
-        final ItemScreenArgs? args = state.extra as ItemScreenArgs?;
-        if (args == null) {
-          throw GoError("args can't be null");
-        }
-        return ItemScreen.phone(args);
-      },
-      routes: <RouteBase>[
-        GoRoute(
-          path: SettingsScreen.routeName,
-          builder: (_, __) => const SettingsScreen(),
-        ),
-      ],
-    ),
-    GoRoute(
       path: '/${ItemScreen.routeName}/:itemId',
       builder: (BuildContext context, GoRouterState state) {
         final String? itemIdStr = state.pathParameters['itemId'];
@@ -65,6 +49,22 @@ final GoRouter router = GoRouter(
       path: HomeScreen.routeName,
       builder: (_, __) => const HomeScreen(),
       routes: <RouteBase>[
+        GoRoute(
+          path: ItemScreen.routeName,
+          builder: (_, GoRouterState state) {
+            final ItemScreenArgs? args = state.extra as ItemScreenArgs?;
+            if (args == null) {
+              throw GoError("args can't be null");
+            }
+            return ItemScreen.phone(args);
+          },
+          routes: <RouteBase>[
+            GoRoute(
+              path: SettingsScreen.routeName,
+              builder: (_, __) => const SettingsScreen(),
+            ),
+          ],
+        ),
         GoRoute(
           path: ShareScreen.routeName,
           builder: (_, GoRouterState state) {
