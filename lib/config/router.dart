@@ -33,9 +33,7 @@ final GoRouter router = GoRouter(
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
                 body: Center(
-                  child: CircularProgressIndicator(
-                    strokeWidth: Dimens.pt2,
-                  ),
+                  child: CircularProgressIndicator(strokeWidth: Dimens.pt2),
                 ),
               );
             }
@@ -46,10 +44,8 @@ final GoRouter router = GoRouter(
               );
             }
 
-            final ItemScreenArgs args = ItemScreenArgs(
-              item: snapshot.data!,
-            );
-            return ItemScreen.phone(args);
+            final ItemScreenArgs args = ItemScreenArgs(item: snapshot.data!);
+            return ItemScreen.phone(args, showBackButton: true);
           },
         );
       },

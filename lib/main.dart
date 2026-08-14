@@ -143,14 +143,26 @@ Future<void> main({bool testing = false}) async {
     router.go(initialLocation);
   }
 
-  runApp(HackiApp(appLinks: appLinks, savedThemeMode: savedThemeMode));
+  runApp(
+    HackiApp(
+      appLinks: appLinks,
+      savedThemeMode: savedThemeMode,
+      initialDeepLink: initialDeepLink,
+    ),
+  );
 }
 
 class HackiApp extends StatefulWidget {
-  const HackiApp({required this.appLinks, super.key, this.savedThemeMode});
+  const HackiApp({
+    required this.appLinks,
+    super.key,
+    this.savedThemeMode,
+    this.initialDeepLink,
+  });
 
   final AdaptiveThemeMode? savedThemeMode;
   final AppLinks appLinks;
+  final Uri? initialDeepLink;
 
   @override
   State<HackiApp> createState() => _HackiAppState();
@@ -158,14 +170,17 @@ class HackiApp extends StatefulWidget {
 
 class _HackiAppState extends State<HackiApp> {
   late final StreamSubscription<Uri> _deepLinkSubscription;
-  Uri? _lastDeepLink;
+  String? _lastDeepLinkLocation;
+  bool _deepLinkNavigationPending = false;
 
   @override
   void initState() {
     super.initState();
+    _lastDeepLinkLocation = _deepLinkLocation(widget.initialDeepLink);
     _deepLinkSubscription = widget.appLinks.uriLinkStream.listen(
       _handleDeepLink,
     );
+    router.routeInformationProvider.addListener(_handleRouteChanged);
   }
 
   void _handleDeepLink(Uri uri) {
@@ -174,19 +189,36 @@ class _HackiAppState extends State<HackiApp> {
     final String? location = _deepLinkLocation(uri);
     if (location == null) return;
 
+    if (location == _lastDeepLinkLocation) return;
+
+    _lastDeepLinkLocation = location;
+    _deepLinkNavigationPending = true;
     final String currentLocation =
         router.routeInformationProvider.value.uri.path;
-    if (uri == _lastDeepLink && currentLocation == location) return;
-
-    _lastDeepLink = uri;
     if (currentLocation != location) {
       router.go(location);
+    } else {
+      _deepLinkNavigationPending = false;
+    }
+  }
+
+  void _handleRouteChanged() {
+    final String? deepLinkLocation = _lastDeepLinkLocation;
+    if (deepLinkLocation == null) return;
+
+    final String currentLocation =
+        router.routeInformationProvider.value.uri.path;
+    if (currentLocation == deepLinkLocation) {
+      _deepLinkNavigationPending = false;
+    } else if (!_deepLinkNavigationPending) {
+      _lastDeepLinkLocation = null;
     }
   }
 
   @override
   void dispose() {
     _deepLinkSubscription.cancel();
+    router.routeInformationProvider.removeListener(_handleRouteChanged);
     super.dispose();
   }
 
