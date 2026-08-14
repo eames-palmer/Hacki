@@ -20,6 +20,10 @@ final GoRouter router = GoRouter(
   initialLocation: HomeScreen.routeName,
   routes: <RouteBase>[
     GoRoute(
+      path: '/${ItemScreen.routeName}/${SettingsScreen.routeName}',
+      builder: (_, __) => const SettingsScreen(),
+    ),
+    GoRoute(
       path: '/${ItemScreen.routeName}',
       builder: (BuildContext context, GoRouterState state) {
         final ItemScreenArgs? args = state.extra as ItemScreenArgs?;
@@ -54,12 +58,6 @@ final GoRouter router = GoRouter(
           },
         );
       },
-      routes: <RouteBase>[
-        GoRoute(
-          path: SettingsScreen.routeName,
-          builder: (_, __) => const SettingsScreen(),
-        ),
-      ],
     ),
     GoRoute(
       path: HomeScreen.routeName,
