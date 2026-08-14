@@ -241,6 +241,7 @@ class _HomeScreenState extends State<HomeScreen>
         .state
         .enabled;
     final bool isMarkReadStoriesEnabled = prefState.isMarkReadStoriesEnabled;
+    context.read<ReminderCubit>().onDismiss();
 
     // If a story is a job story and it has a link to the job posting,
     // it would be better to just navigate to the web page.

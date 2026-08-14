@@ -45,6 +45,12 @@ late final bool isTesting;
 void notificationReceiver(NotificationResponse details) =>
     selectNotificationSubject.add(details.payload);
 
+String? _deepLinkLocation(Uri? uri) {
+  final String? itemId = uri?.queryParameters['id'];
+  if (itemId == null || int.tryParse(itemId) == null) return null;
+  return '/item/$itemId';
+}
+
 Future<void> main({bool testing = false}) async {
   if (kDebugMode) {
     HttpOverrides.global = DebugHttpOverrides();
@@ -53,6 +59,7 @@ Future<void> main({bool testing = false}) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final AppLinks appLinks = AppLinks();
+  final Uri? initialDeepLink = await appLinks.getInitialLink();
 
   await initializeDateFormatting(Platform.localeName);
 
@@ -131,13 +138,16 @@ Future<void> main({bool testing = false}) async {
 
   VisibilityDetectorController.instance.updateInterval = AppDurations.ms200;
 
-  runApp(
-    HackiApp(savedThemeMode: savedThemeMode, appLinks: appLinks),
-  );
+  final String? initialLocation = _deepLinkLocation(initialDeepLink);
+  if (initialLocation != null) {
+    router.go(initialLocation);
+  }
+
+  runApp(HackiApp(appLinks: appLinks, savedThemeMode: savedThemeMode));
 }
 
 class HackiApp extends StatefulWidget {
-  const HackiApp({super.key, this.savedThemeMode, required this.appLinks});
+  const HackiApp({required this.appLinks, super.key, this.savedThemeMode});
 
   final AdaptiveThemeMode? savedThemeMode;
   final AppLinks appLinks;
@@ -156,34 +166,27 @@ class _HackiAppState extends State<HackiApp> {
     _deepLinkSubscription = widget.appLinks.uriLinkStream.listen(
       _handleDeepLink,
     );
-    router.routeInformationProvider.addListener(_handleRouteChanged);
   }
 
   void _handleDeepLink(Uri uri) {
     locator.get<Logger>().i('deeplink received: ${uri.path}');
 
-    final String? itemId = uri.queryParameters['id'];
-    if (itemId == null || int.tryParse(itemId) == null) return;
+    final String? location = _deepLinkLocation(uri);
+    if (location == null) return;
 
-    if (uri == _lastDeepLink) return;
+    final String currentLocation =
+        router.routeInformationProvider.value.uri.path;
+    if (uri == _lastDeepLink && currentLocation == location) return;
 
     _lastDeepLink = uri;
-    router.go('/item/$itemId');
-  }
-
-  void _handleRouteChanged() {
-    final Uri? deepLink = _lastDeepLink;
-    final String? itemId = deepLink?.queryParameters['id'];
-    if (itemId == null ||
-        router.routeInformationProvider.value.uri.path != '/item/$itemId') {
-      _lastDeepLink = null;
+    if (currentLocation != location) {
+      router.go(location);
     }
   }
 
   @override
   void dispose() {
     _deepLinkSubscription.cancel();
-    router.routeInformationProvider.removeListener(_handleRouteChanged);
     super.dispose();
   }
 
