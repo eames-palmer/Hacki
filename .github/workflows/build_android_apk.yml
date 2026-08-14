@@ -19,6 +19,11 @@ on:
         required: false
         default: false
         type: boolean
+      use_dev_signing:
+        description: Sign the profile APK with the stable development keystore
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - master
@@ -64,6 +69,27 @@ jobs:
           key: flutter-pub-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
 
       - run: flutter pub get
+
+      - name: Decode development keystore
+        if: ${{ inputs.build_profile == true && inputs.use_dev_signing == true }}
+        env:
+          DEV_KEYSTORE_BASE64: ${{ secrets.DEV_KEYSTORE_BASE64 }}
+          DEV_STORE_PASSWORD: ${{ secrets.DEV_STORE_PASSWORD }}
+          DEV_KEY_PASSWORD: ${{ secrets.DEV_KEY_PASSWORD }}
+          DEV_KEY_ALIAS: ${{ secrets.DEV_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          : "${DEV_KEYSTORE_BASE64:?DEV_KEYSTORE_BASE64 is required}"
+          : "${DEV_STORE_PASSWORD:?DEV_STORE_PASSWORD is required}"
+          : "${DEV_KEY_PASSWORD:?DEV_KEY_PASSWORD is required}"
+          : "${DEV_KEY_ALIAS:?DEV_KEY_ALIAS is required}"
+          printf '%s' "$DEV_KEYSTORE_BASE64" | base64 --decode > android/app/dev-keystore.jks
+          cat > android/dev-key.properties <<EOF
+          storePassword=$DEV_STORE_PASSWORD
+          keyPassword=$DEV_KEY_PASSWORD
+          keyAlias=$DEV_KEY_ALIAS
+          storeFile=dev-keystore.jks
+          EOF
 
       - name: Run checks
         if: ${{ inputs.run_checks == true }}
