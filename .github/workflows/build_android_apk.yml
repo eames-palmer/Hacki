@@ -14,6 +14,11 @@ on:
         required: false
         default: false
         type: boolean
+      build_profile:
+        description: Build an AOT profile APK instead of a debug APK
+        required: false
+        default: false
+        type: boolean
   push:
     branches:
       - master
@@ -68,15 +73,31 @@ jobs:
           flutter test
 
       - name: Build debug APK
+        if: ${{ inputs.build_profile != true }}
         run: flutter build apk --debug --split-per-abi --target-platform android-arm64
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m"
 
       - name: Upload debug APK
+        if: ${{ inputs.build_profile != true }}
         uses: actions/upload-artifact@v7
         with:
           name: debug-apk
           path: build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
+          retention-days: 30
+
+      - name: Build profile APK
+        if: ${{ inputs.build_profile == true }}
+        run: flutter build apk --profile --split-per-abi --target-platform android-arm64
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m"
+
+      - name: Upload profile APK
+        if: ${{ inputs.build_profile == true }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: profile-apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk
           retention-days: 30
 
       - name: Decode keystore if available
