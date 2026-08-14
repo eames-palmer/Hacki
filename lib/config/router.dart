@@ -20,13 +20,18 @@ final GoRouter router = GoRouter(
   initialLocation: HomeScreen.routeName,
   routes: <RouteBase>[
     GoRoute(
-      path: '/${ItemScreen.routeName}/:itemId',
+      path: '/${ItemScreen.routeName}',
       builder: (BuildContext context, GoRouterState state) {
-        final String? itemIdStr = state.pathParameters['itemId'];
-        final int? itemId = itemIdStr?.itemId;
-        if (itemId == null) {
-          throw GoError("item id can't be null");
+        final ItemScreenArgs? args = state.extra as ItemScreenArgs?;
+        if (args != null) {
+          return ItemScreen.phone(args);
         }
+
+        final int? itemId = state.uri.queryParameters['id']?.itemId;
+        if (itemId == null) {
+          throw GoError("item args or item id can't be null");
+        }
+
         return FutureBuilder<Item?>(
           future: locator.get<HackerNewsRepository>().fetchItem(id: itemId),
           builder: (BuildContext context, AsyncSnapshot<Item?> snapshot) {
@@ -49,27 +54,17 @@ final GoRouter router = GoRouter(
           },
         );
       },
+      routes: <RouteBase>[
+        GoRoute(
+          path: SettingsScreen.routeName,
+          builder: (_, __) => const SettingsScreen(),
+        ),
+      ],
     ),
     GoRoute(
       path: HomeScreen.routeName,
       builder: (_, __) => const HomeScreen(),
       routes: <RouteBase>[
-        GoRoute(
-          path: ItemScreen.routeName,
-          builder: (_, GoRouterState state) {
-            final ItemScreenArgs? args = state.extra as ItemScreenArgs?;
-            if (args == null) {
-              throw GoError("args can't be null");
-            }
-            return ItemScreen.phone(args);
-          },
-          routes: <RouteBase>[
-            GoRoute(
-              path: SettingsScreen.routeName,
-              builder: (_, __) => const SettingsScreen(),
-            ),
-          ],
-        ),
         GoRoute(
           path: ShareScreen.routeName,
           builder: (_, GoRouterState state) {

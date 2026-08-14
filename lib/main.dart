@@ -48,7 +48,7 @@ void notificationReceiver(NotificationResponse details) =>
 String? _deepLinkLocation(Uri? uri) {
   final String? itemId = uri?.queryParameters['id'];
   if (itemId == null || int.tryParse(itemId) == null) return null;
-  return '/item/$itemId';
+  return '/item?id=$itemId';
 }
 
 Future<void> main({bool testing = false}) async {
@@ -193,8 +193,8 @@ class _HackiAppState extends State<HackiApp> {
 
     _lastDeepLinkLocation = location;
     _deepLinkNavigationPending = true;
-    final String currentLocation =
-        router.routeInformationProvider.value.uri.path;
+    final String currentLocation = router.routeInformationProvider.value.uri
+        .toString();
     if (currentLocation != location) {
       router.go(location);
     } else {
@@ -206,8 +206,8 @@ class _HackiAppState extends State<HackiApp> {
     final String? deepLinkLocation = _lastDeepLinkLocation;
     if (deepLinkLocation == null) return;
 
-    final String currentLocation =
-        router.routeInformationProvider.value.uri.path;
+    final String currentLocation = router.routeInformationProvider.value.uri
+        .toString();
     if (currentLocation == deepLinkLocation) {
       _deepLinkNavigationPending = false;
     } else if (!_deepLinkNavigationPending) {
