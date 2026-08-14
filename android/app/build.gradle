@@ -80,6 +80,11 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (devKeystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.dev
+            }
+        }
         profile {
             initWith debug
             if (devKeystorePropertiesFile.exists()) {

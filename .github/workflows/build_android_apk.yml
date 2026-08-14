@@ -20,7 +20,7 @@ on:
         default: false
         type: boolean
       use_dev_signing:
-        description: Sign the profile APK with the stable development keystore
+        description: Sign the debug or profile APK with the stable development keystore
         required: false
         default: false
         type: boolean
@@ -71,7 +71,7 @@ jobs:
       - run: flutter pub get
 
       - name: Decode development keystore
-        if: ${{ inputs.build_profile == true && inputs.use_dev_signing == true }}
+        if: ${{ inputs.use_dev_signing == true }}
         env:
           DEV_KEYSTORE_BASE64: ${{ secrets.DEV_KEYSTORE_BASE64 }}
           DEV_STORE_PASSWORD: ${{ secrets.DEV_STORE_PASSWORD }}
