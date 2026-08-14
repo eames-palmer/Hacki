@@ -59,7 +59,6 @@ Future<void> main({bool testing = false}) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final AppLinks appLinks = AppLinks();
-  final Uri? initialDeepLink = await appLinks.getInitialLink();
 
   await initializeDateFormatting(Platform.localeName);
 
@@ -138,16 +137,10 @@ Future<void> main({bool testing = false}) async {
 
   VisibilityDetectorController.instance.updateInterval = AppDurations.ms200;
 
-  final String? initialLocation = _deepLinkLocation(initialDeepLink);
-  if (initialLocation != null) {
-    router.go(initialLocation);
-  }
-
   runApp(
     HackiApp(
       appLinks: appLinks,
       savedThemeMode: savedThemeMode,
-      initialDeepLink: initialDeepLink,
     ),
   );
 }
@@ -157,12 +150,10 @@ class HackiApp extends StatefulWidget {
     required this.appLinks,
     super.key,
     this.savedThemeMode,
-    this.initialDeepLink,
   });
 
   final AdaptiveThemeMode? savedThemeMode;
   final AppLinks appLinks;
-  final Uri? initialDeepLink;
 
   @override
   State<HackiApp> createState() => _HackiAppState();
@@ -176,7 +167,6 @@ class _HackiAppState extends State<HackiApp> {
   @override
   void initState() {
     super.initState();
-    _lastDeepLinkLocation = _deepLinkLocation(widget.initialDeepLink);
     _deepLinkSubscription = widget.appLinks.uriLinkStream.listen(
       _handleDeepLink,
     );
