@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:get_it/get_it.dart';
+import 'package:hacki/config/deep_link_state.dart';
 import 'package:hacki/cubits/cubits.dart';
 import 'package:hacki/repositories/repositories.dart';
 import 'package:hacki/services/services.dart';
@@ -43,6 +44,7 @@ Future<void> setUpLocator() async {
     ..registerSingleton<LocalNotificationService>(LocalNotificationService())
     ..registerSingleton(AppLifecycleService())
     ..registerSingleton(AppReviewService())
+    ..registerSingleton(DeepLinkState())
     ..registerSingleton<RouteObserver<ModalRoute<dynamic>>>(
       RouteObserver<ModalRoute<dynamic>>(),
     );

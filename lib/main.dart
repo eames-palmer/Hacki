@@ -15,6 +15,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hacki/blocs/blocs.dart';
 import 'package:hacki/config/constants.dart';
+import 'package:hacki/config/deep_link_state.dart';
 import 'package:hacki/config/locator.dart';
 import 'package:hacki/config/paths.dart';
 import 'package:hacki/config/router.dart';
@@ -170,13 +171,13 @@ class HackiApp extends StatefulWidget {
 
 class _HackiAppState extends State<HackiApp> {
   late final StreamSubscription<Uri> _deepLinkSubscription;
-  String? _lastDeepLinkLocation;
-  bool _deepLinkNavigationPending = false;
+  DeepLinkState get _deepLinkState => locator.get<DeepLinkState>();
 
   @override
   void initState() {
     super.initState();
-    _lastDeepLinkLocation = _deepLinkLocation(widget.initialDeepLink);
+    final String? initialLocation = _deepLinkLocation(widget.initialDeepLink);
+    _deepLinkState.currentLocation ??= initialLocation;
     _deepLinkSubscription = widget.appLinks.uriLinkStream.listen(
       _handleDeepLink,
     );
@@ -189,29 +190,31 @@ class _HackiAppState extends State<HackiApp> {
     final String? location = _deepLinkLocation(uri);
     if (location == null) return;
 
-    if (location == _lastDeepLinkLocation) return;
+    if (location == _deepLinkState.currentLocation) return;
 
-    _lastDeepLinkLocation = location;
-    _deepLinkNavigationPending = true;
+    _deepLinkState
+      ..currentLocation = location
+      ..navigationPending = true;
+
     final String currentLocation = router.routeInformationProvider.value.uri
         .toString();
     if (currentLocation != location) {
       router.go(location);
     } else {
-      _deepLinkNavigationPending = false;
+      _deepLinkState.navigationPending = false;
     }
   }
 
   void _handleRouteChanged() {
-    final String? deepLinkLocation = _lastDeepLinkLocation;
+    final String? deepLinkLocation = _deepLinkState.currentLocation;
     if (deepLinkLocation == null) return;
 
     final String currentLocation = router.routeInformationProvider.value.uri
         .toString();
     if (currentLocation == deepLinkLocation) {
-      _deepLinkNavigationPending = false;
-    } else if (!_deepLinkNavigationPending) {
-      _lastDeepLinkLocation = null;
+      _deepLinkState.navigationPending = false;
+    } else if (!_deepLinkState.navigationPending) {
+      _deepLinkState.clearCurrentLocation();
     }
   }
 
