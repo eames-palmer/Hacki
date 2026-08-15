@@ -60,6 +60,7 @@ final GoRouter router = GoRouter(
 
             return ItemScreen.phone(
               ItemScreenArgs(item: snapshot.data!),
+              showBackButton: true,
             );
           },
         );
