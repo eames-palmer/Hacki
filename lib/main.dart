@@ -19,6 +19,7 @@ import 'package:hacki/config/locator.dart';
 import 'package:hacki/config/paths.dart';
 import 'package:hacki/config/router.dart';
 import 'package:hacki/cubits/cubits.dart';
+import 'package:hacki/screens/screens.dart';
 import 'package:hacki/screens/widgets/widgets.dart';
 import 'package:hacki/services/fetcher.dart';
 import 'package:hacki/styles/styles.dart';
@@ -75,6 +76,10 @@ Future<void> main({bool testing = false}) async {
   HydratedBloc.storage = storage;
 
   await setUpLocator();
+
+  router = createRouter(
+    initialLocation: _deepLinkLocation(initialDeepLink) ?? HomeScreen.routeName,
+  );
 
   EquatableConfig.stringify = true;
 
@@ -137,11 +142,6 @@ Future<void> main({bool testing = false}) async {
   // Bloc.observer = CustomBlocObserver();
 
   VisibilityDetectorController.instance.updateInterval = AppDurations.ms200;
-
-  final String? initialLocation = _deepLinkLocation(initialDeepLink);
-  if (initialLocation != null) {
-    router.go(initialLocation);
-  }
 
   runApp(
     HackiApp(
