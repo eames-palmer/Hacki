@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:adaptive_theme/adaptive_theme.dart';
-import 'package:app_links/app_links.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:equatable/equatable.dart';
@@ -15,12 +14,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hacki/blocs/blocs.dart';
 import 'package:hacki/config/constants.dart';
-import 'package:hacki/config/deep_link_state.dart';
 import 'package:hacki/config/locator.dart';
 import 'package:hacki/config/paths.dart';
 import 'package:hacki/config/router.dart';
 import 'package:hacki/cubits/cubits.dart';
-import 'package:hacki/screens/screens.dart';
 import 'package:hacki/screens/widgets/widgets.dart';
 import 'package:hacki/services/fetcher.dart';
 import 'package:hacki/styles/styles.dart';
@@ -47,21 +44,12 @@ late final bool isTesting;
 void notificationReceiver(NotificationResponse details) =>
     selectNotificationSubject.add(details.payload);
 
-String? _deepLinkLocation(Uri? uri) {
-  final String? itemId = uri?.queryParameters['id'];
-  if (itemId == null || int.tryParse(itemId) == null) return null;
-  return '/item?id=$itemId';
-}
-
 Future<void> main({bool testing = false}) async {
   if (kDebugMode) {
     HttpOverrides.global = DebugHttpOverrides();
   }
 
   WidgetsFlutterBinding.ensureInitialized();
-
-  final AppLinks appLinks = AppLinks();
-  final Uri? initialDeepLink = await appLinks.getInitialLink();
 
   await initializeDateFormatting(Platform.localeName);
 
@@ -78,9 +66,7 @@ Future<void> main({bool testing = false}) async {
 
   await setUpLocator();
 
-  router = createRouter(
-    initialLocation: _deepLinkLocation(initialDeepLink) ?? HomeScreen.routeName,
-  );
+  router = createRouter();
 
   EquatableConfig.stringify = true;
 
@@ -144,86 +130,13 @@ Future<void> main({bool testing = false}) async {
 
   VisibilityDetectorController.instance.updateInterval = AppDurations.ms200;
 
-  runApp(
-    HackiApp(
-      appLinks: appLinks,
-      savedThemeMode: savedThemeMode,
-      initialDeepLink: initialDeepLink,
-    ),
-  );
+  runApp(HackiApp(savedThemeMode: savedThemeMode));
 }
 
-class HackiApp extends StatefulWidget {
-  const HackiApp({
-    required this.appLinks,
-    super.key,
-    this.savedThemeMode,
-    this.initialDeepLink,
-  });
+class HackiApp extends StatelessWidget {
+  const HackiApp({super.key, this.savedThemeMode});
 
   final AdaptiveThemeMode? savedThemeMode;
-  final AppLinks appLinks;
-  final Uri? initialDeepLink;
-
-  @override
-  State<HackiApp> createState() => _HackiAppState();
-}
-
-class _HackiAppState extends State<HackiApp> {
-  late final StreamSubscription<Uri> _deepLinkSubscription;
-  DeepLinkState get _deepLinkState => locator.get<DeepLinkState>();
-
-  @override
-  void initState() {
-    super.initState();
-    final String? initialLocation = _deepLinkLocation(widget.initialDeepLink);
-    _deepLinkState.currentLocation ??= initialLocation;
-    _deepLinkSubscription = widget.appLinks.uriLinkStream.listen(
-      _handleDeepLink,
-    );
-    router.routeInformationProvider.addListener(_handleRouteChanged);
-  }
-
-  void _handleDeepLink(Uri uri) {
-    locator.get<Logger>().i('deeplink received: ${uri.path}');
-
-    final String? location = _deepLinkLocation(uri);
-    if (location == null) return;
-
-    if (location == _deepLinkState.currentLocation) return;
-
-    _deepLinkState
-      ..currentLocation = location
-      ..navigationPending = true;
-
-    final String currentLocation = router.routeInformationProvider.value.uri
-        .toString();
-    if (currentLocation != location) {
-      router.go(location);
-    } else {
-      _deepLinkState.navigationPending = false;
-    }
-  }
-
-  void _handleRouteChanged() {
-    final String? deepLinkLocation = _deepLinkState.currentLocation;
-    if (deepLinkLocation == null) return;
-
-    final String currentLocation = router.routeInformationProvider.value.uri
-        .toString();
-    if (currentLocation == deepLinkLocation) {
-      _deepLinkState.navigationPending = false;
-    } else if (!_deepLinkState.navigationPending) {
-      _deepLinkState.clearCurrentLocation();
-    }
-  }
-
-  @override
-  void dispose() {
-    _deepLinkSubscription.cancel();
-    router.routeInformationProvider.removeListener(_handleRouteChanged);
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -344,7 +257,7 @@ class _HackiAppState extends State<HackiApp> {
               ),
               fontFamily: state.font.name,
             ),
-            initial: widget.savedThemeMode ?? AdaptiveThemeMode.system,
+            initial: savedThemeMode ?? AdaptiveThemeMode.system,
             builder: (ThemeData theme, ThemeData darkTheme) {
               return FutureBuilder<AdaptiveThemeMode?>(
                 future: AdaptiveTheme.getThemeMode(),

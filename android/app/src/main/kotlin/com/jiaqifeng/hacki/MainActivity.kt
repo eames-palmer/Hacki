@@ -1,7 +1,6 @@
 package com.jiaqifeng.hacki
 
 import android.content.ContentValues
-import android.content.Intent
 import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.Environment
@@ -14,11 +13,6 @@ import java.io.FileOutputStream
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "image_saver"
-
-    override fun onNewIntent(intent: Intent) {
-        setIntent(intent)
-        super.onNewIntent(intent)
-    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
