@@ -14,13 +14,12 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 late final GoRouter router;
 
-GoRouter createRouter({String initialLocation = HomeScreen.routeName}) {
+GoRouter createRouter() {
   return GoRouter(
     navigatorKey: navigatorKey,
     observers: <NavigatorObserver>[
       locator.get<RouteObserver<ModalRoute<dynamic>>>(),
     ],
-    initialLocation: initialLocation,
     routes: <RouteBase>[
       GoRoute(
         path: '/${ItemScreen.routeName}/${SettingsScreen.routeName}',
