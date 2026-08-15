@@ -28,6 +28,8 @@ GoRouter createRouter({String initialLocation = HomeScreen.routeName}) {
       ),
       GoRoute(
         path: '/${ItemScreen.routeName}',
+        onExit: (BuildContext context, GoRouterState state) =>
+            state.uri.queryParameters['id'] != null,
         builder: (BuildContext context, GoRouterState state) {
           final ItemScreenArgs? args = state.extra as ItemScreenArgs?;
           if (args != null) {
