@@ -103,6 +103,11 @@ class _WebViewBottomSheetState extends State<WebViewBottomSheet>
   void didUpdateWidget(WebViewBottomSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    if (oldWidget.isVisible && !widget.isVisible) {
+      _controller.loadRequest(Uri.parse('about:blank'));
+      return;
+    }
+
     /// When the sheet is revealed again after being hidden, reload the
     /// original page (it was navigated to about:blank when closed to stop
     /// any media playback).
