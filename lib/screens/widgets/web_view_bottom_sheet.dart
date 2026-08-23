@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:hacki/config/constants.dart';
 import 'package:hacki/screens/widgets/spring_curve.dart';
 import 'package:hacki/styles/dimens.dart';
@@ -198,11 +200,18 @@ class _WebViewBottomSheetState extends State<WebViewBottomSheet>
                               if (_sheetController.size == _minChildSize) {
                                 widget.onCloseTapped();
                               } else {
-                                widget.onCloseTapped();
-                                _sheetController.animateTo(
-                                  _minChildSize,
-                                  duration: AppDurations.ms300,
-                                  curve: Curves.easeOutCubic,
+                                unawaited(
+                                  _sheetController
+                                      .animateTo(
+                                        _minChildSize,
+                                        duration: AppDurations.ms300,
+                                        curve: Curves.easeOutCubic,
+                                      )
+                                      .then((_) {
+                                        if (mounted) {
+                                          widget.onCloseTapped();
+                                        }
+                                      }),
                                 );
                               }
                             }
