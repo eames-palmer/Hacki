@@ -17,8 +17,13 @@ class SimpleLogPrinter extends LogPrinter {
     final String errorStr = event.error != null
         ? '  ERROR: ${event.error}'
         : '';
+    final String stackTraceStr = event.stackTrace != null
+        ? '\n${event.stackTrace}'
+        : '';
     final String timeStr = 'TIME: ${DateTimeFormat.dateAndTime(event.time)}';
-    return <String>['${_labelFor(event.level)} $timeStr $messageStr$errorStr'];
+    return <String>[
+      '${_labelFor(event.level)} $timeStr $messageStr$errorStr$stackTraceStr',
+    ];
   }
 
   String _labelFor(Level level) {
