@@ -57,12 +57,14 @@ class ItemScreenWebView extends StatelessWidget {
           child: AnimatedSlide(
             offset: Offset(0, controller.isVisible ? 0 : _offsetInvisible),
             duration: AppDurations.ms200,
-            child: WebViewBottomSheet(
-              initialUrl: url,
-              isVisible: controller.isVisible,
-              onDragHandleTapped: controller.show,
-              onCloseTapped: controller.toggle,
-            ),
+            child: controller.isVisible
+                ? WebViewBottomSheet(
+                    initialUrl: url,
+                    isVisible: true,
+                    onDragHandleTapped: controller.show,
+                    onCloseTapped: controller.toggle,
+                  )
+                : const SizedBox.shrink(),
           ),
         );
       },
