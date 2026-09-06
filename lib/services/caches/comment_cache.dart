@@ -1,12 +1,20 @@
+import 'dart:collection';
+
 import 'package:hacki/models/models.dart' show Comment;
 
 class CommentCache {
-  static final Map<int, Comment> _comments = <int, Comment>{};
+  static const int _maxCachedComments = 1000;
+  static final LinkedHashMap<int, Comment> _comments =
+      LinkedHashMap<int, Comment>();
 
   void cacheComment(Comment comment) {
     final bool isDelayed = comment.text.trim() == '[delayed]';
     if (!isDelayed) {
+      _comments.remove(comment.id);
       _comments[comment.id] = comment.copyWithoutCollapseState();
+      while (_comments.length > _maxCachedComments) {
+        _comments.remove(_comments.keys.first);
+      }
     } else {
       return;
     }
