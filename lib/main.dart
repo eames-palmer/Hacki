@@ -76,6 +76,15 @@ Future<void> main({bool testing = false}) async {
     );
   };
 
+  PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
+    locator.get<Logger>().e(
+      'Unhandled platform or async error',
+      error: error,
+      stackTrace: stack,
+    );
+    return true;
+  };
+
   if (Platform.isIOS) {
     unawaited(Workmanager().initialize(fetcherCallbackDispatcher));
 

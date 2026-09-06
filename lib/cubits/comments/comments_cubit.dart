@@ -534,6 +534,7 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
                       maxLevel: state.maxLevel < level ? level : null,
                     ),
                   );
+                  _logCommentMilestone();
                   offset++;
                 })
               ..onDone(() {
@@ -711,9 +712,12 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
       state.copyWith(
         order: order,
         comments: <Comment>[],
+        matchedComments: <Comment>[],
+        idToCommentMap: <int, Comment>{},
         status: CommentsStatus.inProgress,
       ),
     );
+    globalKeys.clear();
 
     final Item item = state.item;
     final List<int> kids = _sortKids(item.kids);
@@ -977,10 +981,14 @@ comments length is ${state.comments.length}
       return;
     }
 
+    if (state.comments.isEmpty) {
+      return;
+    }
+
     final Comment? firstVisibleRootComment = onScreenComments.firstWhereOrNull(
       (Comment e) => e.isRoot,
     );
-    late int startIndex;
+    int startIndex = 0;
 
     if (firstVisibleRootComment != null) {
       /// The index of first root level comment visible on screen.
@@ -1015,6 +1023,10 @@ comments length is ${state.comments.length}
 
   /// Scroll to previous root level comment.
   void scrollToPreviousRoot() {
+    if (state.comments.isEmpty) {
+      return;
+    }
+
     final List<Comment> onScreenComments = itemPositionsListener
         .itemPositions
         .value
@@ -1281,7 +1293,20 @@ comments length is ${state.comments.length}
           idToCommentMap: updatedIdToCommentMap,
         ),
       );
+      _logCommentMilestone();
     }
+  }
+
+  void _logCommentMilestone() {
+    if (state.comments.isEmpty || state.comments.length % 250 != 0) {
+      return;
+    }
+
+    logInfo(
+      'comment memory milestone: comments=${state.comments.length}, '
+      'commentMap=${state.idToCommentMap.length}, '
+      'globalKeys=${globalKeys.length}',
+    );
   }
 
   void _onAppHidden(AppLifecycleState _) => _preserveCollapseState();
