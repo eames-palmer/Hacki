@@ -172,6 +172,7 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
       _previousCommentStates =
           _globalStoryIdToPreviousCollapseStates[state.item.id];
     } else {
+      _previousCommentStates = null;
       _globalStoryIdToPreviousCollapseStates.clear();
     }
   }
@@ -184,6 +185,8 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
     bool isFetchingFromWebAllowed = true,
   }) async {
     await _initializeCollapseStateCache();
+
+    globalKeys.clear();
 
     final Item item = state.item;
 
@@ -224,6 +227,7 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
         status: CommentsStatus.inProgress,
         comments: <Comment>[],
         matchedComments: <Comment>[],
+        idToCommentMap: <int, Comment>{},
         inThreadSearchQuery: '',
         currentPage: 0,
       ),
@@ -397,7 +401,15 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
     }
     _streamSubscriptions.clear();
 
-    emit(state.copyWith(comments: <Comment>[], currentPage: 0));
+    emit(
+      state.copyWith(
+        comments: <Comment>[],
+        matchedComments: <Comment>[],
+        idToCommentMap: <int, Comment>{},
+        currentPage: 0,
+      ),
+    );
+    globalKeys.clear();
 
     final List<int> kids = _sortKids(updatedItem.kids);
 
@@ -496,6 +508,7 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
 
         final int level = comment.level + 1;
         int offset = 0;
+        Map<int, Comment>? updatedIdToCommentMap;
 
         /// Ignoring because the subscription will be cancelled in close()
         // ignore: cancel_subscriptions
@@ -505,12 +518,10 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
                 .asyncMap(toBuildableComment)
                 .whereNotNull()
                 .listen((Comment cmt) {
-                  globalKeys[cmt.id] = GlobalKey();
                   _commentCache.cacheComment(cmt);
-
-                  final Map<int, Comment> updatedIdToCommentMap =
-                      Map<int, Comment>.from(state.idToCommentMap);
-                  updatedIdToCommentMap[comment.id] = comment;
+                  updatedIdToCommentMap ??= Map<int, Comment>.from(
+                    state.idToCommentMap,
+                  )..[comment.id] = comment;
 
                   emit(
                     state.copyWith(
@@ -769,6 +780,13 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
     Comment comment, {
     bool isRetrying = false,
   }) async {
+    globalKeys.putIfAbsent(
+      comment.id,
+      () => GlobalKey(
+        debugLabel: 'comment_tile_key_${comment.id}_under_${state.item.id}',
+      ),
+    );
+
     /// Find out the index of the comment in the thread.
     final Comment? matchedComment = state.comments.singleWhereOrNull(
       (Comment c) => c.id == comment.id,
@@ -1240,9 +1258,6 @@ comments length is ${state.comments.length}
         );
       }
 
-      globalKeys[comment.id] = GlobalKey(
-        debugLabel: 'comment_tile_key_${comment.id}_under_${state.item.id}',
-      );
       _commentCache.cacheComment(comment);
 
       // Hide comment that matches any of the filter keywords.
@@ -1281,6 +1296,7 @@ comments length is ${state.comments.length}
     await _appStateSubscription.cancel();
     _scrollGeneration++;
     _preserveCollapseState();
+    globalKeys.clear();
     await super.close();
   }
 
