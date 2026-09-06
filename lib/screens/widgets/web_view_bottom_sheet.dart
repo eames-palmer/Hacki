@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:hacki/config/constants.dart';
 import 'package:hacki/screens/widgets/spring_curve.dart';
 import 'package:hacki/styles/dimens.dart';
@@ -101,6 +103,11 @@ class _WebViewBottomSheetState extends State<WebViewBottomSheet>
   void didUpdateWidget(WebViewBottomSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    if (oldWidget.isVisible && !widget.isVisible) {
+      _controller.loadRequest(Uri.parse('about:blank'));
+      return;
+    }
+
     /// When the sheet is revealed again after being hidden, reload the
     /// original page (it was navigated to about:blank when closed to stop
     /// any media playback).
@@ -111,10 +118,6 @@ class _WebViewBottomSheetState extends State<WebViewBottomSheet>
 
   @override
   void dispose() {
-    /// Navigate the web view away from the loaded page so any audio/video it
-    /// is playing stops when the sheet is torn down (e.g. leaving the item
-    /// screen). WKWebView keeps playing media otherwise.
-    _controller.loadRequest(Uri.parse('about:blank'));
     _animController.dispose();
     _urlController.dispose();
     _sheetController.dispose();
@@ -200,15 +203,20 @@ class _WebViewBottomSheetState extends State<WebViewBottomSheet>
                           onClose: () {
                             if (_sheetController.isAttached) {
                               if (_sheetController.size == _minChildSize) {
-                                _controller.loadRequest(
-                                  Uri.parse('about:blank'),
-                                );
                                 widget.onCloseTapped();
                               } else {
-                                _sheetController.animateTo(
-                                  _minChildSize,
-                                  duration: AppDurations.ms300,
-                                  curve: Curves.easeOutCubic,
+                                unawaited(
+                                  _sheetController
+                                      .animateTo(
+                                        _minChildSize,
+                                        duration: AppDurations.ms300,
+                                        curve: Curves.easeOutCubic,
+                                      )
+                                      .then((_) {
+                                        if (mounted) {
+                                          widget.onCloseTapped();
+                                        }
+                                      }),
                                 );
                               }
                             }
@@ -230,7 +238,9 @@ class _WebViewBottomSheetState extends State<WebViewBottomSheet>
                     borderRadius: const BorderRadius.vertical(
                       bottom: Radius.circular(Dimens.pt20),
                     ),
-                    child: WebViewWidget(controller: _controller),
+                    child: widget.isVisible
+                        ? WebViewWidget(controller: _controller)
+                        : const SizedBox.shrink(),
                   ),
                 ),
               ],
