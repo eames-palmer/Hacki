@@ -196,6 +196,13 @@ class _ItemScreenState extends State<ItemScreen>
   void didPushNext() {
     super.didPushNext();
     focusNode.unfocus();
+    _webViewController.hide();
+  }
+
+  @override
+  void didPopNext() {
+    super.didPopNext();
+    _webViewController.show();
   }
 
   void onBackTapped() {

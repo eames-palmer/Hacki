@@ -19,6 +19,13 @@ class ItemScreenWebViewController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Hides the sheet when another route is pushed over the item screen.
+  void hide() {
+    if (!_isVisible) return;
+    _isVisible = false;
+    notifyListeners();
+  }
+
   /// Flips the sheet between visible and hidden.
   void toggle() {
     _isVisible = !_isVisible;
