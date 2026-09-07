@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:math';
 
 import 'package:bloc/bloc.dart';
@@ -28,10 +29,36 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 part 'comments_state.dart';
 
-final Map<int, Map<int, Comment>> _globalStoryIdToPreviousCollapseStates =
-    <int, Map<int, Comment>>{};
+/// Caps how many distinct stories' collapse states are kept in memory so
+/// browsing many articles in one session can't grow this without bound.
+const int _maxTrackedStoriesForCollapseState = 30;
 
-final Map<int, Story> _globalIdToStoryCache = <int, Story>{};
+final LinkedHashMap<int, Map<int, Comment>>
+_globalStoryIdToPreviousCollapseStates = LinkedHashMap<int, Map<int, Comment>>();
+
+void _touchCollapseStateEntry(int storyId, Map<int, Comment> comments) {
+  _globalStoryIdToPreviousCollapseStates.remove(storyId);
+  _globalStoryIdToPreviousCollapseStates[storyId] = comments;
+  while (_globalStoryIdToPreviousCollapseStates.length >
+      _maxTrackedStoriesForCollapseState) {
+    _globalStoryIdToPreviousCollapseStates.remove(
+      _globalStoryIdToPreviousCollapseStates.keys.first,
+    );
+  }
+}
+
+const int _maxTrackedStoriesForStoryCache = 30;
+
+final LinkedHashMap<int, Story> _globalIdToStoryCache =
+    LinkedHashMap<int, Story>();
+
+void _touchStoryCacheEntry(int storyId, Story story) {
+  _globalIdToStoryCache.remove(storyId);
+  _globalIdToStoryCache[storyId] = story;
+  while (_globalIdToStoryCache.length > _maxTrackedStoriesForStoryCache) {
+    _globalIdToStoryCache.remove(_globalIdToStoryCache.keys.first);
+  }
+}
 
 class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
   CommentsCubit({
@@ -165,6 +192,12 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
       _globalStoryIdToPreviousCollapseStates.addAll(
         _collapseStateCacheRepository.cachedItemIdToPreviousStates,
       );
+      while (_globalStoryIdToPreviousCollapseStates.length >
+          _maxTrackedStoriesForCollapseState) {
+        _globalStoryIdToPreviousCollapseStates.remove(
+          _globalStoryIdToPreviousCollapseStates.keys.first,
+        );
+      }
     }
 
     /// Make sure the local cache is initialized.
@@ -350,7 +383,7 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
           ..onDone(() {
             if (item is Story &&
                 state.comments.length >= updatedItem.descendants) {
-              _globalIdToStoryCache[item.id] = updatedItem as Story;
+              _touchStoryCacheEntry(item.id, updatedItem as Story);
               emit(state.copyWith(item: updatedItem));
             }
 
@@ -476,7 +509,7 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
           ..onDone(() {
             if (item is Story &&
                 state.comments.length >= updatedItem.descendants) {
-              _globalIdToStoryCache[item.id] = updatedItem as Story;
+              _touchStoryCacheEntry(item.id, updatedItem as Story);
               emit(state.copyWith(item: updatedItem));
             }
 
@@ -1158,9 +1191,10 @@ comments length is ${state.comments.length}
     }
 
     if (_previousCommentStates != null && state.item is Story) {
-      _globalStoryIdToPreviousCollapseStates
+      final Map<int, Comment> storedStates = _globalStoryIdToPreviousCollapseStates
           .putIfAbsent(state.item.id, () => <int, Comment>{})
-          .addAll(_previousCommentStates ?? <int, Comment>{});
+        ..addAll(_previousCommentStates ?? <int, Comment>{});
+      _touchCollapseStateEntry(state.item.id, storedStates);
 
       if (_preferenceCubit.state.shouldPersistCollapseStateAcrossSessions) {
         unawaited(
