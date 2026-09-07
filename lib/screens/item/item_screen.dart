@@ -187,6 +187,7 @@ class _ItemScreenState extends State<ItemScreen>
   @override
   void didPop() {
     super.didPop();
+    if (!mounted) return;
     if (context.read<EditCubit>().state.text.isNullOrEmpty) {
       context.read<EditCubit>().reset();
     }
@@ -235,6 +236,7 @@ class _ItemScreenState extends State<ItemScreen>
 
   @override
   void dispose() {
+    locator.get<RouteObserver<ModalRoute<dynamic>>>().unsubscribe(this);
     commentEditingController.dispose();
     storyLinkTapThrottle.dispose();
     featureDiscoveryDismissThrottle.dispose();
