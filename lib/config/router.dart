@@ -22,7 +22,10 @@ Page<dynamic> _itemScreenPageBuilder(
 ) {
   final ItemScreenArgs? args = state.extra as ItemScreenArgs?;
   if (args != null) {
-    return MaterialPage<void>(child: ItemScreen.phone(args));
+    return MaterialPage<void>(
+      maintainState: false,
+      child: ItemScreen.phone(args),
+    );
   }
 
   final int? itemId = state.uri.queryParameters['id']?.itemId;
@@ -31,6 +34,7 @@ Page<dynamic> _itemScreenPageBuilder(
   }
 
   return MaterialPage<void>(
+    maintainState: false,
     child: FutureBuilder<Item?>(
       future: _deepLinkItemFutures.putIfAbsent(
         itemId,
