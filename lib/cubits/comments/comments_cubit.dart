@@ -146,6 +146,41 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
   /// one has already begun.
   int _scrollGeneration = 0;
 
+  final List<Comment> _pendingFetchedComments = <Comment>[];
+  Timer? _pendingCommentsFlushTimer;
+  static const int _batchFlushThreshold = 25;
+
+  void _flushPendingComments() {
+    _pendingCommentsFlushTimer?.cancel();
+    _pendingCommentsFlushTimer = null;
+    if (_pendingFetchedComments.isEmpty || isClosed) return;
+
+    final List<Comment> updatedComments = <Comment>[
+      ...state.comments,
+      ..._pendingFetchedComments,
+    ];
+    final Map<int, Comment> updatedIdToCommentMap = Map<int, Comment>.from(
+      state.idToCommentMap,
+    );
+    int maxLevel = state.maxLevel;
+    for (final Comment c in _pendingFetchedComments) {
+      updatedIdToCommentMap[c.id] = c;
+      if (c.level > maxLevel) {
+        maxLevel = c.level;
+      }
+    }
+    _pendingFetchedComments.clear();
+
+    emit(
+      state.copyWith(
+        maxLevel: maxLevel,
+        comments: updatedComments,
+        idToCommentMap: updatedIdToCommentMap,
+      ),
+    );
+    _logCommentMilestone();
+  }
+
   bool get hasNewComment => state.comments.any((Comment c) => c.isNew);
 
   Future<bool> get _shouldFetchFromWeb async {
@@ -217,6 +252,10 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
     AppExceptionHandler? onError,
     bool isFetchingFromWebAllowed = true,
   }) async {
+    _pendingCommentsFlushTimer?.cancel();
+    _pendingCommentsFlushTimer = null;
+    _pendingFetchedComments.clear();
+
     await _initializeCollapseStateCache();
 
     globalKeys.clear();
@@ -428,6 +467,9 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
     }
 
     await _streamSubscription?.cancel();
+    _pendingCommentsFlushTimer?.cancel();
+    _pendingCommentsFlushTimer = null;
+    _pendingFetchedComments.clear();
 
     for (final int id in _streamSubscriptions.keys) {
       await _streamSubscriptions[id]?.cancel();
@@ -541,7 +583,40 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
 
         final int level = comment.level + 1;
         int offset = 0;
-        Map<int, Comment>? updatedIdToCommentMap;
+        final List<Comment> pendingKids = <Comment>[];
+        Timer? kidFlushTimer;
+
+        void flushKidBatch() {
+          kidFlushTimer?.cancel();
+          kidFlushTimer = null;
+          if (pendingKids.isEmpty || isClosed) return;
+
+          final int commentIndex = state.comments.indexOf(comment);
+          if (commentIndex == -1) {
+            pendingKids.clear();
+            return;
+          }
+
+          final List<Comment> updatedComments = <Comment>[...state.comments]
+            ..insertAll(commentIndex + offset + 1, pendingKids);
+          final Map<int, Comment> updatedMap = Map<int, Comment>.from(
+            state.idToCommentMap,
+          )..[comment.id] = comment;
+          for (final Comment c in pendingKids) {
+            updatedMap[c.id] = c;
+          }
+          offset += pendingKids.length;
+          pendingKids.clear();
+
+          emit(
+            state.copyWith(
+              comments: updatedComments,
+              idToCommentMap: updatedMap,
+              maxLevel: state.maxLevel < level ? level : null,
+            ),
+          );
+          _logCommentMilestone();
+        }
 
         /// Ignoring because the subscription will be cancelled in close()
         // ignore: cancel_subscriptions
@@ -552,30 +627,24 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
                 .whereNotNull()
                 .listen((Comment cmt) {
                   _commentCache.cacheComment(cmt);
-                  updatedIdToCommentMap ??= Map<int, Comment>.from(
-                    state.idToCommentMap,
-                  )..[comment.id] = comment;
-
-                  emit(
-                    state.copyWith(
-                      comments: <Comment>[...state.comments]
-                        ..insert(
-                          state.comments.indexOf(comment) + offset + 1,
-                          cmt.copyWith(level: level),
-                        ),
-                      idToCommentMap: updatedIdToCommentMap,
-                      maxLevel: state.maxLevel < level ? level : null,
-                    ),
-                  );
-                  _logCommentMilestone();
-                  offset++;
+                  pendingKids.add(cmt.copyWith(level: level));
+                  if (pendingKids.length >= 10) {
+                    flushKidBatch();
+                  } else {
+                    kidFlushTimer ??= Timer(
+                      const Duration(milliseconds: 40),
+                      flushKidBatch,
+                    );
+                  }
                 })
               ..onDone(() {
+                flushKidBatch();
                 _streamSubscriptions[comment.id]?.cancel();
                 _streamSubscriptions.remove(comment.id);
               })
               ..onError((dynamic e) {
                 logError(e);
+                flushKidBatch();
                 _streamSubscriptions[comment.id]?.cancel();
                 _streamSubscriptions.remove(comment.id);
               });
@@ -1223,6 +1292,7 @@ comments length is ${state.comments.length}
   }
 
   void _onDone({bool isCompletionSnackBarEnabled = false}) {
+    _flushPendingComments();
     _streamSubscription?.cancel();
     _streamSubscription = null;
 
@@ -1272,10 +1342,14 @@ comments length is ${state.comments.length}
       final int parentIndex = state.comments.indexWhere(
         (Comment c) => c.id == comment?.parent,
       );
+      Comment? parent = parentIndex > -1
+          ? state.comments.elementAt(parentIndex)
+          : null;
+      parent ??= _pendingFetchedComments.firstWhereOrNull(
+        (Comment c) => c.id == comment?.parent,
+      );
       final bool isCommentValid = !(comment.dead || comment.deleted);
-      if (parentIndex > -1) {
-        final Comment parent = state.comments.elementAt(parentIndex);
-
+      if (parent != null) {
         comment = comment.copyWith(
           isCollapsedByUser: prevState?.isCollapsedByUser,
           isHiddenByUser: parent.isHiddenByUser || parent.isCollapsedByUser,
@@ -1286,12 +1360,12 @@ comments length is ${state.comments.length}
         );
       } else if ((_previousCommentStates?.isNotEmpty ?? false) &&
           prevState == null) {
-        final Comment? parent = _previousCommentStates?[comment.parent];
-        if (parent == null) {
+        final Comment? p = _previousCommentStates?[comment.parent];
+        if (p == null) {
           comment = comment.copyWith(isNew: isCommentValid);
         } else {
           comment = comment.copyWith(
-            isHiddenByUser: parent.isCollapsedByUser || parent.isHiddenByUser,
+            isHiddenByUser: p.isCollapsedByUser || p.isHiddenByUser,
             isNew: isCommentValid,
           );
         }
@@ -1310,24 +1384,16 @@ comments length is ${state.comments.length}
       final bool hidden = _filterCubit.state.keywords.any(
         (String keyword) => comment!.text.toLowerCase().contains(keyword),
       );
-      final List<Comment> updatedComments = <Comment>[
-        ...state.comments,
-        comment.copyWith(hidden: hidden),
-      ];
+      _pendingFetchedComments.add(comment.copyWith(hidden: hidden));
 
-      final Map<int, Comment> updatedIdToCommentMap = Map<int, Comment>.from(
-        state.idToCommentMap,
-      );
-      updatedIdToCommentMap[comment.id] = comment;
-
-      emit(
-        state.copyWith(
-          maxLevel: state.maxLevel < comment.level ? comment.level : null,
-          comments: updatedComments,
-          idToCommentMap: updatedIdToCommentMap,
-        ),
-      );
-      _logCommentMilestone();
+      if (_pendingFetchedComments.length >= _batchFlushThreshold) {
+        _flushPendingComments();
+      } else {
+        _pendingCommentsFlushTimer ??= Timer(
+          const Duration(milliseconds: 40),
+          _flushPendingComments,
+        );
+      }
     }
   }
 
@@ -1347,6 +1413,9 @@ comments length is ${state.comments.length}
 
   @override
   Future<void> close() async {
+    _flushPendingComments();
+    _pendingCommentsFlushTimer?.cancel();
+    _pendingFetchedComments.clear();
     await _streamSubscription?.cancel();
     for (final StreamSubscription<Comment> s in _streamSubscriptions.values) {
       await s.cancel();

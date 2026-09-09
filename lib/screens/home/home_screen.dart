@@ -115,6 +115,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    locator.get<RouteObserver<ModalRoute<dynamic>>>().unsubscribe(this);
     tabController.dispose();
     intentDataStreamSubscription.cancel();
     notificationStreamSubscription.cancel();

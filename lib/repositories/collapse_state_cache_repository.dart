@@ -15,7 +15,8 @@ class CollapseStateCacheRepository with Loggable {
   }
 
   static const String _boxName = 'persistedCollapseStates';
-  static const int _maxLength = 100_000;
+  static const int _maxLength = 5_000;
+  static const int _maxStoriesToKeep = 30;
   final Future<Box<String>> _box;
   Status _status = .idle;
 
@@ -66,6 +67,25 @@ class CollapseStateCacheRepository with Loggable {
     );
     await box.putAll(entries);
     logDebug('all entries: $entries');
+
+    if (box.length > _maxLength) {
+      final List<int> allStoryIds = box.keys
+          .cast<String>()
+          .map((String k) => int.tryParse(k.split('_').first) ?? 0)
+          .where((int id) => id > 0 && id != storyId)
+          .toSet()
+          .toList();
+      if (allStoryIds.isNotEmpty) {
+        final int pruneCount = (allStoryIds.length ~/ 2).clamp(1, 10);
+        for (final int id in allStoryIds.take(pruneCount)) {
+          final List<String> toDelete = box.keys
+              .cast<String>()
+              .where((String k) => k.startsWith('${id}_'))
+              .toList();
+          await box.deleteAll(toDelete);
+        }
+      }
+    }
   }
 
   Future<Map<int, Comment>> loadStoryStates(int storyId) async {
@@ -88,11 +108,40 @@ class CollapseStateCacheRepository with Loggable {
   Future<Map<int, Map<int, Comment>>> loadAll() async {
     final Box<String> box = await _box;
     final Map<int, Map<int, Comment>> result = <int, Map<int, Comment>>{};
+
+    final List<int> orderedStoryIds = box.keys
+        .cast<String>()
+        .map((String k) => int.tryParse(k.split('_').first) ?? 0)
+        .where((int id) => id > 0)
+        .toSet()
+        .toList();
+
+    if (orderedStoryIds.length > _maxStoriesToKeep || box.length > _maxLength) {
+      final int excessCount = orderedStoryIds.length - _maxStoriesToKeep;
+      final List<int> storyIdsToDelete = orderedStoryIds
+          .take(excessCount > 0 ? excessCount : 10)
+          .toList();
+      for (final int storyId in storyIdsToDelete) {
+        final List<String> keysToDelete = box.keys
+            .cast<String>()
+            .where((String k) => k.startsWith('${storyId}_'))
+            .toList();
+        await box.deleteAll(keysToDelete);
+      }
+    }
+
+    final Set<int> allowedStoryIds = box.keys
+        .cast<String>()
+        .map((String k) => int.tryParse(k.split('_').first) ?? 0)
+        .where((int id) => id > 0)
+        .toSet();
+
     logDebug('all keys: ${box.keys}');
     for (final String key in box.keys.cast<String>()) {
       logDebug('handling key: $key');
       final List<String> parts = key.split('_');
       final int storyId = int.parse(parts[0]);
+      if (!allowedStoryIds.contains(storyId)) continue;
       final int commentId = int.parse(parts[1]);
       final String? jsonString = box.get(key);
       if (jsonString != null) {
@@ -107,36 +156,13 @@ class CollapseStateCacheRepository with Loggable {
 
     logInfo('${box.length} keys in preserved collapse states');
 
-    if (box.length > _maxLength) {
-      final List<int> orderedStoryIds = box.keys
-          .cast<String>()
-          .map((String k) => int.tryParse(k.split('_').first) ?? 0)
-          .toSet()
-          .sorted((int a, int b) => a.compareTo(b));
-
-      logInfo(
-        '''total unique story IDs in preserved collapse state: ${orderedStoryIds.length}''',
-      );
-
-      final int end = orderedStoryIds.length ~/ 2;
-      final List<int> storyIdsToBeDeleted = orderedStoryIds.sublist(0, end);
-      logInfo(
-        '''deleting ${storyIdsToBeDeleted.length} story IDs from collapse state''',
-      );
-      for (final int storyId in storyIdsToBeDeleted) {
-        final List<String> keysToDelete = box.keys
-            .cast<String>()
-            .where((String k) => k.startsWith('${storyId}_'))
-            .toList();
-
-        await box.deleteAll(keysToDelete);
-      }
-    }
-
     return result;
   }
 
-  Future<void> clear() async => (await _box).clear();
+  Future<void> clear() async {
+    _itemIdToPreviousStates.clear();
+    await (await _box).clear();
+  }
 
   @override
   String get logIdentifier => 'CollapseStateCacheRepository';

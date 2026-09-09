@@ -389,15 +389,17 @@ class CommentTile extends StatelessWidget {
                                     ],
                                   ),
                                 ),
-                                secondChild: Padding(
-                                  padding: const EdgeInsets.only(
-                                    left: Dimens.pt8,
-                                    right: Dimens.pt2,
-                                    top: Dimens.pt6,
-                                    bottom: Dimens.pt12,
-                                  ),
-                                  child: SizedBox(
-                                    width: double.infinity,
+                                secondChild: isActionable && comment.isCollapsedByUser
+                                    ? const SizedBox.shrink()
+                                    : Padding(
+                                        padding: const EdgeInsets.only(
+                                          left: Dimens.pt8,
+                                          right: Dimens.pt2,
+                                          top: Dimens.pt6,
+                                          bottom: Dimens.pt12,
+                                        ),
+                                        child: SizedBox(
+                                          width: double.infinity,
                                     child: Semantics(
                                       label: '''At level ${comment.level}.''',
                                       child: () {

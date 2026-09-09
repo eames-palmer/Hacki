@@ -45,8 +45,10 @@ class SembastRepository with Loggable {
     await dir.create(recursive: true);
     final String dbPath = join(dir.path, 'hacki.db');
     final File file = File(dbPath);
-    final FileStat stat = file.statSync();
-    logInfo('hacki.db file size: ${stat.size / 1000000}MB');
+    if (file.existsSync()) {
+      final FileStat stat = file.statSync();
+      logInfo('hacki.db file size: ${stat.size / 1000000}MB');
+    }
     final DatabaseFactory dbFactory = databaseFactoryIo;
     final Database db = await dbFactory.openDatabase(dbPath);
     _database = db;
@@ -58,13 +60,17 @@ class SembastRepository with Loggable {
     await tempDir.create(recursive: true);
     final String dbPath = join(tempDir.path, 'hacki_cache.db');
     final File file = File(dbPath);
-    final FileStat stat = file.statSync();
-    logInfo('hacki_cache.db file size: ${stat.size / 1000000}MB');
+    if (file.existsSync()) {
+      final FileStat stat = file.statSync();
+      logInfo('hacki_cache.db file size: ${stat.size / 1000000}MB');
+    }
     final DatabaseFactory dbFactory = databaseFactoryIo;
     final Database db = await dbFactory.openDatabase(dbPath);
     _cache = db;
     return db;
   }
+
+  static const int _maxCachedComments = 2000;
 
   //#region Cached comments for time machine feature and favorites screen.
   Future<Map<String, Object?>> cacheComment(Comment comment) async {
@@ -72,6 +78,17 @@ class SembastRepository with Loggable {
     final StoreRef<int, Map<String, Object?>> store = intMapStoreFactory.store(
       _cachedCommentsKey,
     );
+    final int count = await store.count(db);
+    if (count > _maxCachedComments) {
+      final List<RecordSnapshot<int, Map<String, Object?>>> records =
+          await store.find(
+        db,
+        finder: Finder(limit: count - _maxCachedComments + 100),
+      );
+      for (final RecordSnapshot<int, Map<String, Object?>> record in records) {
+        await store.record(record.key).delete(db);
+      }
+    }
     return store.record(comment.id).put(db, comment.toJson());
   }
 
@@ -283,16 +300,29 @@ class SembastRepository with Loggable {
   //#endregion
 
   Future<void> deleteCachedComments() async {
-    final Directory dir = await getApplicationDocumentsDirectory();
-    await dir.create(recursive: true);
-    final String dbPath = join(dir.path, 'hacki.db');
-    final File file = File(dbPath);
-    if (file.existsSync()) {
-      await file.delete();
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+    final Directory cacheDir = await getApplicationCacheDirectory();
+    final String cacheDbPath = join(cacheDir.path, 'hacki.db');
+    final File cacheFile = File(cacheDbPath);
+    if (cacheFile.existsSync()) {
+      await cacheFile.delete();
+    }
+    final Directory docDir = await getApplicationDocumentsDirectory();
+    final String docDbPath = join(docDir.path, 'hacki.db');
+    final File docFile = File(docDbPath);
+    if (docFile.existsSync()) {
+      await docFile.delete();
     }
   }
 
   Future<void> deleteCachedMetadata() async {
+    if (_cache != null) {
+      await _cache!.close();
+      _cache = null;
+    }
     final Directory tempDir = await getTemporaryDirectory();
     await tempDir.create(recursive: true);
     final String cachePath = join(tempDir.path, 'hacki_cache.db');

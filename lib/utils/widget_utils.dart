@@ -29,7 +29,7 @@ abstract final class WidgetUtils {
       cacheExtent *= 0.9;
     }
 
-    final double result = cacheExtent.clamp(400, 2000);
+    final double result = cacheExtent.clamp(200, 800);
     _cachedPreferredCacheExtent = result;
     _logger.i('[WidgetUtils]: preferred cache extent: $result');
     return result;
