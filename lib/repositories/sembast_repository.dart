@@ -39,6 +39,7 @@ class SembastRepository with Loggable {
   static const String _commentsKey = 'comments';
   static const String _idsOfCommentsRepliedToMeKey = 'idsOfCommentsRepliedToMe';
   static const String _metadataCacheKey = 'metadata';
+  static const int _maxCachedComments = 2000;
 
   Future<Database> initializeDatabase() async {
     final Directory dir = await getApplicationCacheDirectory();
@@ -72,6 +73,17 @@ class SembastRepository with Loggable {
     final StoreRef<int, Map<String, Object?>> store = intMapStoreFactory.store(
       _cachedCommentsKey,
     );
+    final int count = await store.count(db);
+    if (count >= _maxCachedComments) {
+      final List<RecordSnapshot<int, Map<String, Object?>>> records =
+          await store.find(
+        db,
+        finder: Finder(limit: count - _maxCachedComments + 1),
+      );
+      for (final RecordSnapshot<int, Map<String, Object?>> record in records) {
+        await store.record(record.key).delete(db);
+      }
+    }
     return store.record(comment.id).put(db, comment.toJson());
   }
 
@@ -283,12 +295,23 @@ class SembastRepository with Loggable {
   //#endregion
 
   Future<void> deleteCachedComments() async {
-    final Directory dir = await getApplicationDocumentsDirectory();
-    await dir.create(recursive: true);
-    final String dbPath = join(dir.path, 'hacki.db');
-    final File file = File(dbPath);
-    if (file.existsSync()) {
-      await file.delete();
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+
+    final Directory cacheDir = await getApplicationCacheDirectory();
+    final String cacheDbPath = join(cacheDir.path, 'hacki.db');
+    final File cacheFile = File(cacheDbPath);
+    if (cacheFile.existsSync()) {
+      await cacheFile.delete();
+    }
+
+    final Directory documentDir = await getApplicationDocumentsDirectory();
+    final String documentDbPath = join(documentDir.path, 'hacki.db');
+    final File documentFile = File(documentDbPath);
+    if (documentFile.existsSync()) {
+      await documentFile.delete();
     }
   }
 
