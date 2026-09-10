@@ -389,49 +389,53 @@ class CommentTile extends StatelessWidget {
                                     ],
                                   ),
                                 ),
-                                secondChild: Padding(
-                                  padding: const EdgeInsets.only(
-                                    left: Dimens.pt8,
-                                    right: Dimens.pt2,
-                                    top: Dimens.pt6,
-                                    bottom: Dimens.pt12,
-                                  ),
-                                  child: SizedBox(
-                                    width: double.infinity,
-                                    child: Semantics(
-                                      label: '''At level ${comment.level}.''',
-                                      child: () {
-                                        if (comment.hidden) {
-                                          return const CenteredText.hidden();
-                                        } else if (comment.deleted) {
-                                          return const CenteredText.deleted();
-                                        } else if (comment.dead) {
-                                          return const CenteredText.dead();
-                                        } else if (blocklistState.blocklist
-                                            .contains(comment.by)) {
-                                          return const CenteredText.blocked();
-                                        } else {
-                                          return ItemText(
-                                            key: ValueKey<int>(comment.id),
-                                            item: comment,
-                                            selectable: isSelectable,
-                                            textScaler: MediaQuery.of(
-                                              context,
-                                            ).textScaler,
-                                            onTap: () {
-                                              if (isCollapsable) {
-                                                HapticFeedbackUtils.selection();
-                                                _onTextTapped(context);
+                                secondChild:
+                                    isActionable && comment.isCollapsedByUser
+                                    ? const SizedBox.shrink()
+                                    : Padding(
+                                        padding: const EdgeInsets.only(
+                                          left: Dimens.pt8,
+                                          right: Dimens.pt2,
+                                          top: Dimens.pt6,
+                                          bottom: Dimens.pt12,
+                                        ),
+                                        child: SizedBox(
+                                          width: double.infinity,
+                                          child: Semantics(
+                                            label:
+                                                '''At level ${comment.level}.''',
+                                            child: () {
+                                              if (comment.hidden) {
+                                                return const CenteredText.hidden();
+                                              } else if (comment.deleted) {
+                                                return const CenteredText.deleted();
+                                              } else if (comment.dead) {
+                                                return const CenteredText.dead();
+                                              } else if (blocklistState.blocklist
+                                                  .contains(comment.by)) {
+                                                return const CenteredText.blocked();
                                               } else {
-                                                onTap?.call();
+                                                return ItemText(
+                                                  key: ValueKey<int>(comment.id),
+                                                  item: comment,
+                                                  selectable: isSelectable,
+                                                  textScaler: MediaQuery.of(
+                                                    context,
+                                                  ).textScaler,
+                                                  onTap: () {
+                                                    if (isCollapsable) {
+                                                      HapticFeedbackUtils.selection();
+                                                      _onTextTapped(context);
+                                                    } else {
+                                                      onTap?.call();
+                                                    }
+                                                  },
+                                                );
                                               }
-                                            },
-                                          );
-                                        }
-                                      }(),
-                                    ),
-                                  ),
-                                ),
+                                            }(),
+                                          ),
+                                        ),
+                                      ),
                               ),
                             ],
                           ),
