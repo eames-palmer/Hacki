@@ -1,11 +1,16 @@
+import 'dart:collection';
+
 import 'package:hacki/models/models.dart' show Comment;
 
 class CommentCache {
-  static final Map<int, Comment> _comments = <int, Comment>{};
+  static const int _maxCachedComments = 1000;
+  static final LinkedHashMap<int, Comment> _comments =
+      LinkedHashMap<int, Comment>();
 
   void cacheComment(Comment comment) {
     final bool isDelayed = comment.text.trim() == '[delayed]';
     if (!isDelayed) {
+      _comments.remove(comment.id);
       _comments[comment.id] = comment.copyWithoutCollapseState();
     } else {
       return;
@@ -16,12 +21,23 @@ class CommentCache {
     /// comment here.
     final int parentId = comment.parent;
     final Comment? parent = _comments[parentId];
-    if (parent == null || parent.kids.contains(comment.id)) return;
-    final Comment updatedParent = parent.copyWith(kid: comment.id);
-    _comments[parentId] = updatedParent;
+    if (parent != null && !parent.kids.contains(comment.id)) {
+      _comments.remove(parentId);
+      _comments[parentId] = parent.copyWith(kid: comment.id);
+    }
+
+    while (_comments.length > _maxCachedComments) {
+      _comments.remove(_comments.keys.first);
+    }
   }
 
-  Comment? getComment(int id) => _comments[id];
+  Comment? getComment(int id) {
+    final Comment? comment = _comments.remove(id);
+    if (comment != null) {
+      _comments[id] = comment;
+    }
+    return comment;
+  }
 
   Stream<Comment> getCommentsStream({
     required List<int> ids,
