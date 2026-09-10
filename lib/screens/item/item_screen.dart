@@ -212,6 +212,7 @@ class _ItemScreenState extends State<ItemScreen>
     super.initState();
 
     SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final ModalRoute<dynamic>? route = ModalRoute.of(context);
 
       if (route == null) return;
@@ -228,6 +229,7 @@ class _ItemScreenState extends State<ItemScreen>
 
   @override
   void dispose() {
+    locator.get<RouteObserver<ModalRoute<dynamic>>>().unsubscribe(this);
     commentEditingController.dispose();
     storyLinkTapThrottle.dispose();
     featureDiscoveryDismissThrottle.dispose();
