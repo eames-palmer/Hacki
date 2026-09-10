@@ -15,7 +15,8 @@ class CollapseStateCacheRepository with Loggable {
   }
 
   static const String _boxName = 'persistedCollapseStates';
-  static const int _maxLength = 100_000;
+  static const int _maxLength = 5_000;
+  static const int _maxStoriesToKeep = 30;
   final Future<Box<String>> _box;
   Status _status = .idle;
 
@@ -66,6 +67,7 @@ class CollapseStateCacheRepository with Loggable {
     );
     await box.putAll(entries);
     logDebug('all entries: $entries');
+    await _pruneBox(box);
   }
 
   Future<Map<int, Comment>> loadStoryStates(int storyId) async {
@@ -87,6 +89,8 @@ class CollapseStateCacheRepository with Loggable {
 
   Future<Map<int, Map<int, Comment>>> loadAll() async {
     final Box<String> box = await _box;
+    await _pruneBox(box);
+
     final Map<int, Map<int, Comment>> result = <int, Map<int, Comment>>{};
     logDebug('all keys: ${box.keys}');
     for (final String key in box.keys.cast<String>()) {
@@ -107,33 +111,32 @@ class CollapseStateCacheRepository with Loggable {
 
     logInfo('${box.length} keys in preserved collapse states');
 
-    if (box.length > _maxLength) {
-      final List<int> orderedStoryIds = box.keys
+    return result;
+  }
+
+  Future<void> _pruneBox(Box<String> box) async {
+    final List<int> storyIds = box.keys
+        .cast<String>()
+        .map((String key) => int.tryParse(key.split('_').first) ?? 0)
+        .where((int storyId) => storyId > 0)
+        .toSet()
+        .toList();
+    final List<int> deletedStoryIds = <int>[];
+
+    while ((storyIds.length > _maxStoriesToKeep || box.length > _maxLength) &&
+        storyIds.length > 1) {
+      final int storyId = storyIds.removeAt(0);
+      final List<String> keysToDelete = box.keys
           .cast<String>()
-          .map((String k) => int.tryParse(k.split('_').first) ?? 0)
-          .toSet()
-          .sorted((int a, int b) => a.compareTo(b));
-
-      logInfo(
-        '''total unique story IDs in preserved collapse state: ${orderedStoryIds.length}''',
-      );
-
-      final int end = orderedStoryIds.length ~/ 2;
-      final List<int> storyIdsToBeDeleted = orderedStoryIds.sublist(0, end);
-      logInfo(
-        '''deleting ${storyIdsToBeDeleted.length} story IDs from collapse state''',
-      );
-      for (final int storyId in storyIdsToBeDeleted) {
-        final List<String> keysToDelete = box.keys
-            .cast<String>()
-            .where((String k) => k.startsWith('${storyId}_'))
-            .toList();
-
-        await box.deleteAll(keysToDelete);
-      }
+          .where((String key) => key.startsWith('${storyId}_'))
+          .toList();
+      await box.deleteAll(keysToDelete);
+      deletedStoryIds.add(storyId);
     }
 
-    return result;
+    if (deletedStoryIds.isNotEmpty) {
+      logInfo('deleted collapse state for stories: $deletedStoryIds');
+    }
   }
 
   Future<void> clear() async => (await _box).clear();

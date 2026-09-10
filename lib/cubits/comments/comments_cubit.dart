@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:math';
 
 import 'package:bloc/bloc.dart';
@@ -28,8 +29,22 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
 part 'comments_state.dart';
 
-final Map<int, Map<int, Comment>> _globalStoryIdToPreviousCollapseStates =
-    <int, Map<int, Comment>>{};
+const int _maxTrackedStoriesForCollapseState = 30;
+
+final LinkedHashMap<int, Map<int, Comment>>
+_globalStoryIdToPreviousCollapseStates =
+    LinkedHashMap<int, Map<int, Comment>>();
+
+void _touchCollapseStateEntry(int storyId, Map<int, Comment> states) {
+  _globalStoryIdToPreviousCollapseStates.remove(storyId);
+  _globalStoryIdToPreviousCollapseStates[storyId] = states;
+  while (_globalStoryIdToPreviousCollapseStates.length >
+      _maxTrackedStoriesForCollapseState) {
+    _globalStoryIdToPreviousCollapseStates.remove(
+      _globalStoryIdToPreviousCollapseStates.keys.first,
+    );
+  }
+}
 
 final Map<int, Story> _globalIdToStoryCache = <int, Story>{};
 
@@ -227,6 +242,12 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
       _globalStoryIdToPreviousCollapseStates.addAll(
         _collapseStateCacheRepository.cachedItemIdToPreviousStates,
       );
+      while (_globalStoryIdToPreviousCollapseStates.length >
+          _maxTrackedStoriesForCollapseState) {
+        _globalStoryIdToPreviousCollapseStates.remove(
+          _globalStoryIdToPreviousCollapseStates.keys.first,
+        );
+      }
     }
 
     /// Make sure the local cache is initialized.
@@ -1238,9 +1259,13 @@ comments length is ${state.comments.length}
     }
 
     if (_previousCommentStates != null && state.item is Story) {
-      _globalStoryIdToPreviousCollapseStates
-          .putIfAbsent(state.item.id, () => <int, Comment>{})
-          .addAll(_previousCommentStates ?? <int, Comment>{});
+      final Map<int, Comment> storedStates =
+          _globalStoryIdToPreviousCollapseStates.putIfAbsent(
+            state.item.id,
+            () => <int, Comment>{},
+          )
+            ..addAll(_previousCommentStates ?? <int, Comment>{});
+      _touchCollapseStateEntry(state.item.id, storedStates);
 
       if (_preferenceCubit.state.shouldPersistCollapseStateAcrossSessions) {
         unawaited(
