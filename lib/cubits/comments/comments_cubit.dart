@@ -648,7 +648,6 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
                 .asyncMap(toBuildableComment)
                 .whereNotNull()
                 .listen((Comment child) {
-                  globalKeys[child.id] = GlobalKey();
                   _commentCache.cacheComment(child);
 
                   pendingChildren.add(child.copyWith(level: level));
@@ -906,6 +905,14 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
     );
     if (matchedComment == null) return;
     final int index = state.comments.indexOf(matchedComment);
+
+    globalKeys.putIfAbsent(
+      matchedComment.id,
+      () => GlobalKey(
+        debugLabel:
+            'comment_tile_key_${matchedComment.id}_under_${state.item.id}',
+      ),
+    );
 
     /// If index if found, scroll to the comment.
     if (index != -1) {
@@ -1383,9 +1390,6 @@ comments length is ${state.comments.length}
         );
       }
 
-      globalKeys[comment.id] = GlobalKey(
-        debugLabel: 'comment_tile_key_${comment.id}_under_${state.item.id}',
-      );
       _commentCache.cacheComment(comment);
 
       // Hide comment that matches any of the filter keywords.
