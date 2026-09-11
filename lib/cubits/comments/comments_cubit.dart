@@ -46,7 +46,18 @@ void _touchCollapseStateEntry(int storyId, Map<int, Comment> states) {
   }
 }
 
-final Map<int, Story> _globalIdToStoryCache = <int, Story>{};
+const int _maxTrackedStoriesForStoryCache = 30;
+
+final LinkedHashMap<int, Story> _globalIdToStoryCache =
+    LinkedHashMap<int, Story>();
+
+void _touchStoryCacheEntry(int storyId, Story story) {
+  _globalIdToStoryCache.remove(storyId);
+  _globalIdToStoryCache[storyId] = story;
+  while (_globalIdToStoryCache.length > _maxTrackedStoriesForStoryCache) {
+    _globalIdToStoryCache.remove(_globalIdToStoryCache.keys.first);
+  }
+}
 
 class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
   CommentsCubit({
@@ -432,7 +443,7 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
             _flushPendingComments();
             if (item is Story &&
                 state.comments.length >= updatedItem.descendants) {
-              _globalIdToStoryCache[item.id] = updatedItem as Story;
+              _touchStoryCacheEntry(item.id, updatedItem as Story);
               emit(state.copyWith(item: updatedItem));
             }
 
@@ -552,7 +563,7 @@ class CommentsCubit extends Cubit<CommentsState> with Loggable, BuildableMixin {
             _flushPendingComments();
             if (item is Story &&
                 state.comments.length >= updatedItem.descendants) {
-              _globalIdToStoryCache[item.id] = updatedItem as Story;
+              _touchStoryCacheEntry(item.id, updatedItem as Story);
               emit(state.copyWith(item: updatedItem));
             }
 
