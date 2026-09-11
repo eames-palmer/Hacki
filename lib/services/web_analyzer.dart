@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -68,7 +69,17 @@ class WebVideoInfo extends WebImageInfo {
 
 /// Web analyzer
 class WebAnalyzer {
-  static final Map<String?, InfoBase> cacheMap = <String?, InfoBase>{};
+  static const int _maxCacheSize = 100;
+  static final LinkedHashMap<String?, InfoBase> cacheMap =
+      LinkedHashMap<String?, InfoBase>();
+
+  static void _cacheInfo(String key, InfoBase info) {
+    cacheMap.remove(key);
+    cacheMap[key] = info;
+    while (cacheMap.length > _maxCacheSize) {
+      cacheMap.remove(cacheMap.keys.first);
+    }
+  }
   static final RegExp _bodyReg = RegExp(
     r'<body[^>]*>([\s\S]*?)<\/body>',
     caseSensitive: false,
@@ -159,7 +170,10 @@ class WebAnalyzer {
   static InfoBase? getInfoFromCache(String? cacheKey) {
     if (cacheKey == null) return null;
 
-    final InfoBase? info = cacheMap[cacheKey];
+    final InfoBase? info = cacheMap.remove(cacheKey);
+    if (info != null) {
+      cacheMap[cacheKey] = info;
+    }
 
     return info;
   }
@@ -192,7 +206,7 @@ ${info.toJson()}
       info = WebInfo(title: story.title, description: story.text)
         .._shouldRetry = false;
 
-      cacheMap[key] = info;
+      _cacheInfo(key, info);
 
       return info;
     }
@@ -214,7 +228,7 @@ ${info.toJson()}
         description: comment != null ? '${comment.by}: ${comment.text}' : null,
       ).._shouldRetry = false;
 
-      cacheMap[key] = info;
+      _cacheInfo(key, info);
 
       return info;
     }
@@ -233,7 +247,7 @@ ${info.toJson()}
 $_logPrefix fetched file cached metadata using key $key for $story:
 ${info.toJson()}
 ''');
-        cacheMap[key] = info;
+        _cacheInfo(key, info);
         return info;
       }
 
@@ -246,7 +260,7 @@ ${info.toJson()}
 
       /// [7] If web analyzing was successful, cache it in both mem and file.
       if (info != null && !info._shouldRetry) {
-        cacheMap[key] = info;
+        _cacheInfo(key, info);
 
         if (info is WebInfo) {
           locator.get<Logger>().d(
